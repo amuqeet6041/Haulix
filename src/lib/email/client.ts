@@ -1,40 +1,61 @@
 import { Resend } from "resend";
 
+/**
+ * Resend configuration. Server-only: none of these variables has the
+ * NEXT_PUBLIC_ prefix, so they are never bundled for the browser.
+ *
+ * - RESEND_API_KEY  API key.
+ * - FROM_EMAIL      Sender, e.g. "HAULIX Logistics <dispatch@your-domain.com>". Must use a
+ *                   domain verified in Resend. EMAIL_FROM is still read as a fallback for
+ *                   older .env files.
+ * - CONTACT_EMAIL   HAULIX inbox that receives lead notifications; also the reply-to address
+ *                   on customer confirmations.
+ *
+ * Business notifications need all three. Customer confirmations need the key and sender.
+ * Missing configuration only skips email; it never blocks saving a lead.
+ */
+
 let cachedClient: Resend | null = null;
 
-/** Variables that must all be set before notification email can be sent. */
-export const REQUIRED_EMAIL_ENV = ["RESEND_API_KEY", "CONTACT_EMAIL"] as const;
-
-/** Names (never values) of the required email variables that are missing or blank. */
-export function getMissingEmailConfig(): string[] {
-  return REQUIRED_EMAIL_ENV.filter((name) => !process.env[name]?.trim());
+function env(name: string): string {
+  return process.env[name]?.trim() ?? "";
 }
 
-/** True only when every required email variable is set. */
+/** Sender address, or "" when not configured. No hard-coded fallback. */
+export function getFromAddress(): string {
+  return env("FROM_EMAIL") || env("EMAIL_FROM");
+}
+
+/** Inbox that receives lead notifications, or "" when not configured. */
+export function getNotificationRecipient(): string {
+  return env("CONTACT_EMAIL");
+}
+
+/** Names (never values) of the variables a business notification still needs. */
+export function getMissingEmailConfig(): string[] {
+  const missing: string[] = [];
+  if (!env("RESEND_API_KEY")) missing.push("RESEND_API_KEY");
+  if (!getFromAddress()) missing.push("FROM_EMAIL");
+  if (!getNotificationRecipient()) missing.push("CONTACT_EMAIL");
+  return missing;
+}
+
+/** Names of the variables a customer confirmation still needs (CONTACT_EMAIL is optional). */
+export function getMissingConfirmationConfig(): string[] {
+  return getMissingEmailConfig().filter((name) => name !== "CONTACT_EMAIL");
+}
+
+/** True only when business notifications can be sent. */
 export function isEmailConfigured(): boolean {
   return getMissingEmailConfig().length === 0;
 }
 
 /** Lazily creates the Resend client. Throws if RESEND_API_KEY is missing. */
 export function getResend(): Resend {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const apiKey = env("RESEND_API_KEY");
   if (!apiKey) {
     throw new Error("RESEND_API_KEY is not set.");
   }
   cachedClient ??= new Resend(apiKey);
   return cachedClient;
-}
-
-/** Inbox that receives lead and contact notifications. */
-export function getNotificationRecipient(): string {
-  return process.env.CONTACT_EMAIL?.trim() ?? "";
-}
-
-/**
- * Sender address. Resend only delivers from verified domains, so set
- * EMAIL_FROM once your domain is verified. The fallback is Resend's shared
- * test sender, suitable for development only.
- */
-export function getFromAddress(): string {
-  return process.env.EMAIL_FROM?.trim() || "HAULIX <onboarding@resend.dev>";
 }

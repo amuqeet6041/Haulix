@@ -1,75 +1,120 @@
 import {
   getFromAddress,
+  getMissingConfirmationConfig,
   getMissingEmailConfig,
   getNotificationRecipient,
   getResend,
 } from "@/lib/email/client";
-import { contactNotificationEmail, leadNotificationEmail } from "@/lib/email/templates";
+import {
+  businessNotificationEmail,
+  customerConfirmationEmail,
+  type EmailContent,
+  type EmailLead,
+} from "@/lib/email/templates";
 import { logServerError, logServerWarning } from "@/lib/log";
-import type { CarrierInquiryData, ContactData } from "@/validations";
+import { getPrisma } from "@/lib/prisma";
 
 /**
- * Sends internal notification emails through Resend.
- * Never throws, so callers can decide how to degrade.
+ * Lead emails, sent through Resend after the lead is stored:
+ * - a business notification to CONTACT_EMAIL (no reply-to; see sendBusinessNotification), and
+ * - a confirmation to the visitor (reply-to: CONTACT_EMAIL when set).
+ *
+ * Nothing here throws. Each delivery is independent; `notifiedAt` and
+ * `confirmationSentAt` are set only after Resend accepts that message.
+ * Logs name the lead id and the error name/code only, never addresses or keys.
  */
 
-/** Outcome of a notification attempt. */
-export type NotificationResult = "sent" | "not_configured" | "failed";
+export type EmailResult = "sent" | "not_configured" | "failed";
 
-interface EmailPayload {
-  subject: string;
-  html: string;
-  text: string;
-  replyTo: string;
+interface Message extends EmailContent {
+  to: string;
+  replyTo?: string;
 }
 
-async function send(payload: EmailPayload): Promise<NotificationResult> {
-  if (getMissingEmailConfig().length > 0) return "not_configured";
-
+async function send(kind: string, leadId: string, message: Message): Promise<EmailResult> {
   try {
     const { error } = await getResend().emails.send({
       from: getFromAddress(),
-      to: getNotificationRecipient(),
-      replyTo: payload.replyTo,
-      subject: payload.subject,
-      html: payload.html,
-      text: payload.text,
+      to: message.to,
+      ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
     });
     if (error) {
-      logServerError("email", "Resend rejected the notification", error);
+      logServerError("email", `Resend rejected the ${kind} for ${leadId}`, error);
       return "failed";
     }
     return "sent";
   } catch (error) {
-    logServerError("email", "Failed to send the notification", error);
+    logServerError("email", `Failed to send the ${kind} for ${leadId}`, error);
     return "failed";
   }
 }
 
-/**
- * Logs a notification that did not go out for a record that IS stored, so the
- * team can follow up from the database. Logs the record id only, no personal data.
- */
-export function reportNotificationOutcome(
-  scope: string,
-  recordId: string,
-  result: NotificationResult,
-): void {
-  if (result === "sent") return;
-  if (result === "not_configured") {
+export async function sendBusinessNotification(lead: EmailLead): Promise<EmailResult> {
+  const missing = getMissingEmailConfig();
+  if (missing.length > 0) {
     logServerWarning(
-      scope,
-      `Stored ${recordId}; notification skipped (missing ${getMissingEmailConfig().join(", ")}).`,
+      "email",
+      `Notification for ${lead.id} skipped (missing ${missing.join(", ")}).`,
     );
-    return;
+    return "not_configured";
   }
-  logServerWarning(scope, `Stored ${recordId}; notification email failed.`);
+  // No Reply-To header: a From on our domain with a Reply-To outside it is a common spam signal,
+  // so the email body offers a one-click "Reply to <name>" mailto button instead. (Hostinger
+  // filed early notifications in Spam; whitelist the sender in the mailbox if that recurs.)
+  return send("notification", lead.id, {
+    ...businessNotificationEmail(lead),
+    to: getNotificationRecipient(),
+  });
 }
 
-export function sendLeadNotification(lead: CarrierInquiryData): Promise<NotificationResult> {
-  return send({ ...leadNotificationEmail(lead), replyTo: lead.email });
+export async function sendCustomerConfirmation(lead: EmailLead): Promise<EmailResult> {
+  const missing = getMissingConfirmationConfig();
+  if (missing.length > 0) {
+    logServerWarning(
+      "email",
+      `Confirmation for ${lead.id} skipped (missing ${missing.join(", ")}).`,
+    );
+    return "not_configured";
+  }
+  const inbox = getNotificationRecipient();
+  return send("confirmation", lead.id, {
+    ...customerConfirmationEmail(lead, { canReply: Boolean(inbox) }),
+    to: lead.data.email,
+    replyTo: inbox || undefined,
+  });
 }
 
-export function sendContactNotification(message: ContactData): Promise<NotificationResult> {
-  return send({ ...contactNotificationEmail(message), replyTo: message.email });
+/** Records a successful delivery. A failed update is logged; the email was still sent. */
+async function markSent(leadId: string, field: "notifiedAt" | "confirmationSentAt"): Promise<void> {
+  try {
+    await getPrisma().lead.update({
+      where: { id: leadId },
+      data: { [field]: new Date() },
+      select: { id: true },
+    });
+  } catch (error) {
+    logServerError("email", `Sent, but could not record ${field} for ${leadId}`, error);
+  }
+}
+
+/**
+ * Sends both emails for a stored lead and records each successful delivery.
+ * Runs after the response (see lead.service). Never throws.
+ */
+export async function deliverLeadEmails(lead: EmailLead): Promise<void> {
+  try {
+    const [notification, confirmation] = await Promise.all([
+      sendBusinessNotification(lead),
+      sendCustomerConfirmation(lead),
+    ]);
+    await Promise.all([
+      notification === "sent" ? markSent(lead.id, "notifiedAt") : undefined,
+      confirmation === "sent" ? markSent(lead.id, "confirmationSentAt") : undefined,
+    ]);
+  } catch (error) {
+    logServerError("email", `Unexpected error delivering emails for ${lead.id}`, error);
+  }
 }

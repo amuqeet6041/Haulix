@@ -103,8 +103,11 @@ route.ts: parseBody(request, carrierInquirySchema)  ← same schema, server-side
 lead.service.submitCarrierInquiry(data)   (contact form: /api/contact → submitContactMessage)
    1. no DATABASE_URL            → not_configured (503), nothing sent
    2. storeLead → Prisma Lead    → write failed: failed (500), no email sent
-   3. sendLeadNotification → Resend (only if RESEND_API_KEY + CONTACT_EMAIL set)
-        skipped or failed        → warning with the record id; submission still ok
+                                 → duplicate submissionId: ok (200), nothing scheduled
+   3. after(() => deliverLeadEmails(lead))   runs once the response has been sent
+        business notification → CONTACT_EMAIL  → on success set notifiedAt
+        customer confirmation → visitor        → on success set confirmationSentAt
+        skipped or failed      → warning with the lead id; the lead stays stored
    ▼
 ServiceResult → respondToServiceResult → JSON { ok, message }
    ok only once stored · 503 if no database · 500 if the database write failed
@@ -167,8 +170,19 @@ usePostJson → FormStatus message; 422 fieldErrors mapped onto fields (first on
   `schema.prisma`). `DIRECT_URL` (migrations) is preferred, then `DATABASE_URL`. The config loads
   `.env.local` then `.env` via `prisma/env.ts` (real environment variables win) and sets no
   datasource when neither URL exists, so CLI commands fail clearly instead of using a placeholder.
-- **Email:** Resend client is also lazy. Templates escape all user input. `EMAIL_FROM` must be a
-  verified sender in production.
+- **Email:** Resend client is lazy (`src/lib/email/client.ts`). Config: `RESEND_API_KEY`,
+  `FROM_EMAIL` (sender on a Resend-verified domain; `EMAIL_FROM` read as a legacy fallback; no
+  built-in default) and `CONTACT_EMAIL` (team inbox, also the confirmation reply-to). Business
+  notifications have **no Reply-To** (an own-domain From with an outside Reply-To is a common spam
+  signal); the notification has a "Reply to <name>" mailto button instead. Hostinger initially
+  filed notifications in Spam: whitelist the sender in the `leads@` mailbox. Templates
+  (`src/lib/email/templates.ts`) are table-based dark HTML with orange accents, a 600px max width
+  and a plain-text part; every user value is escaped and subjects are kept to one line. Business
+  notifications show all provided fields plus submitted time (UTC), source page and lead id.
+  Customer confirmations show only what the visitor sent, never ids or internal data, and promise
+  no response time. `src/services/email.service.ts` sends both independently, never throws, and
+  sets `notifiedAt` / `confirmationSentAt` only after Resend accepts the email.
+  `lead.service` schedules delivery with `after()` from `next/server` (injectable for tests).
 - **Failure behaviour:** services never throw to routes; they return a `ServiceResult` so the API can
   answer honestly (503 no database, 500 database write failed) and never report a lead as received
   unless it is stored.

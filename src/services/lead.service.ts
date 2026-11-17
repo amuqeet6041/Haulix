@@ -1,15 +1,14 @@
+import { after } from "next/server";
+
 import type { Prisma } from "@/generated/prisma/client";
+import type { EmailLead } from "@/lib/email/templates";
 import { logServerError, logServerWarning } from "@/lib/log";
 import { getPrisma, isDatabaseConfigured } from "@/lib/prisma";
 import type { SubmissionMeta } from "@/lib/submission";
 import type { ServiceResult } from "@/types/api";
 import type { CarrierInquiryData, ContactData } from "@/validations";
 
-import {
-  reportNotificationOutcome,
-  sendContactNotification,
-  sendLeadNotification,
-} from "./email.service";
+import { deliverLeadEmails } from "./email.service";
 
 /**
  * Every inbound inquiry is a row in the unified `Lead` table.
@@ -68,7 +67,9 @@ export function toContactRecord(
 }
 
 type StoreResult =
-  { status: "stored"; id: string } | { status: "duplicate" } | { status: "failed" };
+  | { status: "stored"; id: string; createdAt: Date }
+  | { status: "duplicate" }
+  | { status: "failed" };
 
 function isUniqueViolation(error: unknown): boolean {
   return Boolean(
@@ -84,8 +85,11 @@ function isUniqueViolation(error: unknown): boolean {
 async function storeLead(record: Prisma.LeadCreateInput): Promise<StoreResult> {
   const prisma = getPrisma();
   try {
-    const created = await prisma.lead.create({ data: record, select: { id: true } });
-    return { status: "stored", id: created.id };
+    const created = await prisma.lead.create({
+      data: record,
+      select: { id: true, createdAt: true },
+    });
+    return { status: "stored", id: created.id, createdAt: created.createdAt };
   } catch (error) {
     if (record.submissionId && isUniqueViolation(error)) {
       const existing = await prisma.lead
@@ -101,16 +105,27 @@ async function storeLead(record: Prisma.LeadCreateInput): Promise<StoreResult> {
   }
 }
 
+/** Runs work after the response is sent. Defaults to Next.js `after()`; tests inject their own. */
+export type Scheduler = (task: () => Promise<void>) => void;
+
+export interface SubmitOptions {
+  schedule?: Scheduler;
+}
+
+type LeadInput =
+  { type: "CARRIER_INQUIRY"; data: CarrierInquiryData } | { type: "CONTACT"; data: ContactData };
+
 /**
  * The database is the source of truth: a submission succeeds only once the
- * lead is stored. The team notification is sent afterwards; if it fails, the
- * stored lead is kept and the failure is logged, so nothing is lost and the
- * visitor is not asked to resubmit. A duplicate (retried) submission succeeds
- * without storing or notifying again.
+ * lead is stored. Emails (team notification and visitor confirmation) are
+ * scheduled with `after()`, so the visitor gets the normal response without
+ * waiting for Resend, and an email failure can never undo the stored lead.
+ * A duplicate (retried) submission succeeds without storing or emailing again.
  */
 async function submit(
+  input: LeadInput,
   record: Prisma.LeadCreateInput,
-  notify: () => ReturnType<typeof sendLeadNotification>,
+  { schedule = after }: SubmitOptions,
 ): Promise<ServiceResult> {
   if (!isDatabaseConfigured()) return { ok: false, reason: "not_configured" };
 
@@ -118,7 +133,13 @@ async function submit(
   if (stored.status === "failed") return { ok: false, reason: "failed" };
   if (stored.status === "duplicate") return { ok: true };
 
-  reportNotificationOutcome("lead", stored.id, await notify());
+  const lead = {
+    ...input,
+    id: stored.id,
+    createdAt: stored.createdAt,
+    sourcePage: record.sourcePage ?? null,
+  } as EmailLead;
+  schedule(() => deliverLeadEmails(lead));
   return { ok: true };
 }
 
@@ -126,14 +147,16 @@ async function submit(
 export function submitCarrierInquiry(
   data: CarrierInquiryData,
   meta: SubmissionMeta = {},
+  options: SubmitOptions = {},
 ): Promise<ServiceResult> {
-  return submit(toCarrierInquiryRecord(data, meta), () => sendLeadNotification(data));
+  return submit({ type: "CARRIER_INQUIRY", data }, toCarrierInquiryRecord(data, meta), options);
 }
 
 /** Handles a validated contact message from /contact. */
 export function submitContactMessage(
   data: ContactData,
   meta: SubmissionMeta = {},
+  options: SubmitOptions = {},
 ): Promise<ServiceResult> {
-  return submit(toContactRecord(data, meta), () => sendContactNotification(data));
+  return submit({ type: "CONTACT", data }, toContactRecord(data, meta), options);
 }

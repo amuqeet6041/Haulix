@@ -76,23 +76,30 @@ First-time Playwright setup: `npx playwright install chromium`.
 
 Copy `.env.example` to `.env.local`. Every variable is documented in that file.
 
-| Variable                          | Needed to run? | Purpose                                            |
-| --------------------------------- | -------------- | -------------------------------------------------- |
-| `NEXT_PUBLIC_SITE_URL`            | No             | Canonical/sitemap base URL. Defaults to localhost. |
-| `DATABASE_URL`, `DIRECT_URL`      | No             | PostgreSQL connection (lead storage)               |
-| `RESEND_API_KEY`, `CONTACT_EMAIL` | No             | Email notifications for new leads/messages         |
-| `EMAIL_FROM`                      | No             | Verified sender address for Resend                 |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID`   | No             | Reserved for analytics (not wired up yet)          |
-| `SENTRY_DSN`                      | No             | Reserved for error monitoring (not wired up yet)   |
+| Variable                        | Needed to run? | Purpose                                               |
+| ------------------------------- | -------------- | ----------------------------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`          | No             | Canonical/sitemap base URL. Defaults to localhost.    |
+| `DATABASE_URL`, `DIRECT_URL`    | No             | PostgreSQL connection (lead storage)                  |
+| `RESEND_API_KEY`                | No             | Resend API key (all lead emails)                      |
+| `FROM_EMAIL`                    | No             | Verified sender (`EMAIL_FROM` still read as backup)   |
+| `CONTACT_EMAIL`                 | No             | HAULIX inbox for notifications; confirmation reply-to |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | No             | Reserved for analytics (not wired up yet)             |
+| `SENTRY_DSN`                    | No             | Reserved for error monitoring (not wired up yet)      |
 
 Only `NEXT_PUBLIC_*` variables reach the browser. Keep secrets out of those.
 
 **Forms without configuration:** the database is the source of truth. Until `DATABASE_URL` is
 set, the lead and contact APIs return a clear "not available yet" (HTTP 503) instead of pretending
-to succeed, even if email is configured. A submission succeeds only once it is stored. The team
-notification is sent afterwards and needs **both** `RESEND_API_KEY` and `CONTACT_EMAIL`; if email
-is missing or fails, the stored submission is kept and a warning naming the record id (never
-personal data) is logged.
+to succeed, even if email is configured. A submission succeeds only once it is stored. Two emails
+are then sent in the background with Next.js `after()`: a notification to the team (needs
+`RESEND_API_KEY`, `FROM_EMAIL` and `CONTACT_EMAIL`) and a confirmation to the visitor (needs
+`RESEND_API_KEY` and `FROM_EMAIL`). `Lead.notifiedAt` and `Lead.confirmationSentAt` are set only
+when Resend accepts each email. If email is missing or fails, the stored submission is kept and a
+warning naming the lead id (never addresses or keys) is logged.
+
+**Resend sending domain:** add your domain in the Resend dashboard (Domains), add the DNS records
+it shows (an MX and an SPF TXT record on the `send` subdomain, and a DKIM TXT record at
+`resend._domainkey`), wait for "Verified", then set `FROM_EMAIL` to an address on that domain.
 
 **Prisma CLI and env files:** `prisma.config.ts` loads `.env.local` first, then `.env` (the same
 precedence as Next.js); variables already set in the real environment always win. If neither

@@ -126,6 +126,29 @@ Supersedes §11 (database), §12 (validation rules) and the folder notes for `co
   truck count field is registered as `fleetSize` (id `fleetSize`, label unchanged).
 - Tests: 118 passing (validation per type, enum sync with Prisma, server-managed field stripping).
 
+## 0h. Update — Phase 4.6 Resend email integration (2026-11-18, uncommitted)
+
+Supersedes the email notes in §4, §12, §13 and §18 where they conflict. Details: `ARCHITECTURE.md`
+§6 data flow and §7 "Email".
+
+- **Env:** `RESEND_API_KEY`, `FROM_EMAIL` (new name; `EMAIL_FROM` still read as fallback; the old
+  `onboarding@resend.dev` default was removed), `CONTACT_EMAIL`. Notifications need all three;
+  confirmations need the key and sender. As of this phase none of them is set in `.env.local`, so
+  no email is sent yet; leads are still stored.
+- **Flow:** store lead → `after()` → team notification + visitor confirmation in parallel →
+  `notifiedAt` / `confirmationSentAt` set only on Resend success. Duplicates schedule nothing.
+- **Templates:** branded dark HTML + plain text (`lib/email/templates.ts`). Times shown in UTC
+  (no business time zone documented). Footer shows the site URL only when `NEXT_PUBLIC_SITE_URL`
+  is a real domain, and phone or email only when `siteConfig.contact` has them (currently empty).
+- **Manual setup still needed:** Resend account and API key, a verified sending domain (DNS
+  records from the Resend dashboard), then the three env vars locally and in Vercel.
+- Tests: 165 passing (templates, delivery, scheduling, config). Unit tests send no real email.
+- **Hostinger spam (2026-11-17):** with Resend configured (`support@` sender, `leads@` inbox),
+  admin notifications showed "Delivered" in Resend but seemed missing; they were in the `leads@`
+  Spam folder. Fix on the mailbox side: mark as Not spam and whitelist `support@`. Admin
+  notifications also no longer set Reply-To (common spam signal) and include a "Reply to <name>"
+  mailto button. Customer confirmations keep Reply-To `leads@`.
+
 ## 0g. Update — Phase 4.5 forms connected to the lead system (2026-11-18, uncommitted)
 
 Supersedes the §0e "Form compatibility" note and the equipment preselect items in §10 and §16.

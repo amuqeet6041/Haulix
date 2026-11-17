@@ -6,7 +6,7 @@ import {
 } from "@/lib/email/client";
 import { contactNotificationEmail, leadNotificationEmail } from "@/lib/email/templates";
 import { logServerError, logServerWarning } from "@/lib/log";
-import type { ContactData, LeadData } from "@/validations";
+import type { CarrierInquiryData, ContactData } from "@/validations";
 
 /**
  * Sends internal notification emails through Resend.
@@ -66,7 +66,7 @@ export function reportNotificationOutcome(
   logServerWarning(scope, `Stored ${recordId}; notification email failed.`);
 }
 
-export function sendLeadNotification(lead: LeadData): Promise<NotificationResult> {
+export function sendLeadNotification(lead: CarrierInquiryData): Promise<NotificationResult> {
   return send({ ...leadNotificationEmail(lead), replyTo: lead.email });
 }
 

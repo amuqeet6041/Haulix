@@ -10,7 +10,11 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { equipmentServices } from "@/content/services";
 import { usePostJson } from "@/hooks/use-post-json";
 import { pickFieldErrors } from "@/lib/form-errors";
-import { leadSchema, type LeadData, type LeadInput } from "@/validations";
+import {
+  carrierInquirySchema,
+  type CarrierInquiryData,
+  type CarrierInquiryInput,
+} from "@/validations";
 
 /** Visible fields in form order; server field errors are mapped onto these. */
 const leadFields = [
@@ -21,10 +25,10 @@ const leadFields = [
   "mcNumber",
   "dotNumber",
   "equipment",
-  "truckCount",
+  "fleetSize",
   "preferredLanes",
   "message",
-] as const satisfies readonly (keyof LeadInput)[];
+] as const satisfies readonly (keyof CarrierInquiryInput)[];
 
 /** Carrier inquiry form. Validated with the same Zod schema the API route uses. */
 export function LeadForm() {
@@ -34,13 +38,13 @@ export function LeadForm() {
     reset,
     setError,
     formState: { errors },
-  } = useForm<LeadInput, unknown, LeadData>({
-    resolver: zodResolver(leadSchema),
+  } = useForm<CarrierInquiryInput, unknown, CarrierInquiryData>({
+    resolver: zodResolver(carrierInquirySchema),
     defaultValues: { website: "" },
   });
   const { status, message, submit } = usePostJson("/api/leads");
 
-  async function onSubmit(data: LeadData) {
+  async function onSubmit(data: CarrierInquiryData) {
     const result = await submit(data);
     if (result.ok) {
       reset();
@@ -141,19 +145,19 @@ export function LeadForm() {
           </Select>
         </FormField>
         <FormField
-          id="truckCount"
+          id="fleetSize"
           label="Number of trucks"
           required
-          error={errors.truckCount?.message}
+          error={errors.fleetSize?.message}
         >
           <Input
-            id="truckCount"
+            id="fleetSize"
             type="number"
             min={1}
             inputMode="numeric"
-            aria-invalid={Boolean(errors.truckCount)}
-            aria-describedby={errors.truckCount ? "truckCount-message" : undefined}
-            {...register("truckCount", { valueAsNumber: true })}
+            aria-invalid={Boolean(errors.fleetSize)}
+            aria-describedby={errors.fleetSize ? "fleetSize-message" : undefined}
+            {...register("fleetSize", { valueAsNumber: true })}
           />
         </FormField>
       </div>

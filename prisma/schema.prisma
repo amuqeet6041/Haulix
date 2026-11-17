@@ -1,5 +1,11 @@
 // HAULIX data model (Module 1: lead generation only).
 // Carrier Portal models (users, trucks, loads, documents) will be added in Module 2.
+//
+// One `Lead` table holds every inbound inquiry, so the team works a single
+// queue with one status workflow. `type` says which form it came from.
+// Which fields are required for each type is enforced by the Zod schemas in
+// src/validations/lead.ts; the database only enforces what is true for all
+// leads. Column lengths match the Zod limits in src/lib/validations/primitives.ts.
 
 generator client {
   provider = "prisma-client"
@@ -10,44 +16,82 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Which public form created the lead.
+enum LeadType {
+  CARRIER_INQUIRY /// "Get Started" form (/get-started)
+  CONTACT /// General contact form (/contact)
+}
+
+/// Sales workflow: NEW -> CONTACTED -> QUALIFIED -> ONBOARDED or REJECTED.
+/// ONBOARDED (won) and REJECTED (lost) are the closed states.
 enum LeadStatus {
   NEW
   CONTACTED
   QUALIFIED
   ONBOARDED
   REJECTED
+  SPAM /// Identified as spam; kept for abuse review, never worked.
+}
+
+/// Topic of a contact message. Labels live in src/content/inquiry-types.ts.
+enum InquiryType {
+  GENERAL
+  DISPATCH_SERVICES
+  PRICING
+  EQUIPMENT
+  PARTNERSHIP
+  OTHER
 }
 
 model Lead {
-  id           String     @id @default(cuid())
-  fullName     String
-  email        String
-  phone        String
-  companyName  String?
-  mcNumber     String?
-  dotNumber    String?
-  equipment    String
-  truckCount   Int
-  preferredLanes String?
-  message      String?
-  status       LeadStatus @default(NEW)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  // Identity and classification
+  id     String     @id @default(cuid())
+  type   LeadType
+  status LeadStatus @default(NEW)
 
-  @@index([email])
+  // Contact information
+  fullName    String  @db.VarChar(100)
+  email       String  @db.VarChar(254)
+  /// Required for CARRIER_INQUIRY (validation level), optional for CONTACT.
+  phone       String? @db.VarChar(30)
+  companyName String? @db.VarChar(150)
+  mcNumber    String? @db.VarChar(10)
+  dotNumber   String? @db.VarChar(10)
+
+  // Dispatch information (required for CARRIER_INQUIRY at validation level)
+  /// Equipment slug from src/content/services.ts. A string, not an enum, so
+  /// adding an equipment type never needs a migration.
+  equipment      String? @db.VarChar(50)
+  fleetSize      Int?
+  preferredLanes String? @db.VarChar(300)
+
+  // Inquiry information
+  /// Required for CONTACT at validation level.
+  inquiryType InquiryType?
+  subject     String?      @db.VarChar(150)
+  message     String?      @db.Text
+
+  // Server-managed: never taken from client input
+  /// Path of the page the form was submitted from.
+  sourcePage         String?   @db.VarChar(500)
+  /// Idempotency key: a resubmission with the same id is not stored twice.
+  submissionId       String    @unique @default(cuid())
+  /// Salted hash of the client IP (never the raw IP), for abuse limits.
+  ipHash             String?   @db.VarChar(64)
+  userAgent          String?   @db.VarChar(500)
+  notifiedAt         DateTime?
+  confirmationSentAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Future administration
+  notes       String?   @db.Text
+  contactedAt DateTime?
+
   @@index([status, createdAt])
-}
-
-model ContactMessage {
-  id        String   @id @default(cuid())
-  fullName  String
-  email     String
-  phone     String?
-  subject   String
-  message   String
-  createdAt DateTime @default(now())
-
-  @@index([createdAt])
+  @@index([type, createdAt])
+  @@index([email])
+  @@index([ipHash, createdAt])
 }
 
 model NewsletterSubscriber {

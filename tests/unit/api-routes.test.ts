@@ -20,7 +20,7 @@ function jsonRequest(url: string, body: unknown): Request {
 const validContact = {
   fullName: "Jane Driver",
   email: "jane@example.com",
-  subject: "Dispatch question",
+  inquiryType: "GENERAL",
   message: "I would like to know more about dispatch.",
   website: "",
 };
@@ -30,7 +30,7 @@ const validLead = {
   email: "jane@example.com",
   phone: "(555) 123-4567",
   equipment: "dry-van",
-  truckCount: 2,
+  fleetSize: 2,
   website: "",
 };
 
@@ -66,6 +66,29 @@ describe("POST /api/contact", () => {
     expect(Object.keys(body.fieldErrors).sort()).toEqual(["email", "message"]);
   });
 
+  it("returns 422 when the inquiry type is missing or unknown", async () => {
+    const withoutType: Partial<typeof validContact> = { ...validContact };
+    delete withoutType.inquiryType;
+    for (const body of [withoutType, { ...validContact, inquiryType: "LOANS" }]) {
+      const response = await postContact(jsonRequest("http://test/api/contact", body));
+      expect(response.status).toBe(422);
+      const json = (await response.json()) as { fieldErrors: Record<string, string[]> };
+      expect(Object.keys(json.fieldErrors)).toEqual(["inquiryType"]);
+    }
+  });
+
+  it("ignores server-managed fields instead of rejecting or storing them", async () => {
+    const response = await postContact(
+      jsonRequest("http://test/api/contact", {
+        ...validContact,
+        status: "QUALIFIED",
+        submissionId: "client-chosen",
+      }),
+    );
+    // Passes validation; 503 only because no database is configured in tests.
+    expect(response.status).toBe(503);
+  });
+
   it("returns 400 for a body that is not JSON", async () => {
     const response = await postContact(jsonRequest("http://test/api/contact", "<html>"));
     expect(response.status).toBe(400);
@@ -94,5 +117,15 @@ describe("POST /api/leads", () => {
     expect(response.status).toBe(422);
     const body = (await response.json()) as { fieldErrors: Record<string, string[]> };
     expect(body.fieldErrors.phone).toBeDefined();
+  });
+
+  it("returns 422 when equipment or fleet size is missing", async () => {
+    const rest: Partial<typeof validLead> = { ...validLead };
+    delete rest.equipment;
+    delete rest.fleetSize;
+    const response = await postLead(jsonRequest("http://test/api/leads", rest));
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { fieldErrors: Record<string, string[]> };
+    expect(Object.keys(body.fieldErrors).sort()).toEqual(["equipment", "fleetSize"]);
   });
 });

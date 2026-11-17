@@ -109,7 +109,7 @@ npx prisma migrate dev --name init
 
 ```
 Hailix/
-├── prisma/schema.prisma        Data model (Lead, ContactMessage, NewsletterSubscriber)
+├── prisma/schema.prisma        Data model (unified Lead, NewsletterSubscriber)
 ├── prisma.config.ts            Prisma 7 connection config
 ├── public/                     Static assets (images, logos, icons, fonts) + READMEs
 ├── src/

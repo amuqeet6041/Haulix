@@ -126,11 +126,11 @@ describe("ContactForm", () => {
     expect(screen.queryByText("ignored")).not.toBeInTheDocument();
   });
 
-  it("marks the phone field invalid when it is too long", async () => {
+  it("marks the optional phone field invalid when it is not a US number", async () => {
     const user = userEvent.setup();
     render(<ContactForm />);
     await fillContactForm(user);
-    await user.type(screen.getByLabelText(/Phone/), "1".repeat(31));
+    await user.type(screen.getByLabelText(/Phone/), "12345");
 
     await user.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -139,6 +139,23 @@ describe("ContactForm", () => {
       "aria-describedby",
       "contact-phone-message",
     );
+  });
+
+  it("sends the general inquiry type and no server-managed fields", async () => {
+    const fetchMock = mockFetch(jsonResponse({ ok: true, message: "Thanks!" }));
+    const user = userEvent.setup();
+    render(<ContactForm />);
+    await fillContactForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByRole("status");
+
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(body.inquiryType).toBe("GENERAL");
+    for (const field of ["type", "status", "submissionId", "sourcePage", "ipHash"]) {
+      expect(body).not.toHaveProperty(field);
+    }
   });
 
   it("disables the button while sending and announces success", async () => {

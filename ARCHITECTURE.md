@@ -39,10 +39,11 @@ Components never import services or the database. Services never import componen
   process. Edit here, not in components.
 - `src/lib` — `utils.ts`, `seo.ts` (metadata + JSON-LD builders), `prisma.ts`, `api-response.ts`,
   `email/` (Resend client and templates), `validations/primitives.ts`.
-- `src/services` — `lead.service.ts`, `contact.service.ts`, `newsletter.service.ts`, `email.service.ts`.
-- `src/validations` — `lead.ts`, `contact.ts`, `newsletter.ts` (Zod schemas and inferred types).
+- `src/services` — `lead.service.ts` (both lead types), `newsletter.service.ts`, `email.service.ts`.
+- `src/validations` — `lead.ts` (`carrierInquirySchema`, `contactSchema`), `newsletter.ts` (Zod
+  schemas and inferred types).
 - `src/hooks` — `use-post-json.ts`. `src/types` — shared types.
-- `prisma/schema.prisma` — `Lead`, `ContactMessage`, `NewsletterSubscriber`.
+- `prisma/schema.prisma` — unified `Lead` (types `CARRIER_INQUIRY`, `CONTACT`), `NewsletterSubscriber`.
 - `tests/unit`, `tests/e2e` — Vitest and Playwright.
 
 ## 3. Component architecture
@@ -89,19 +90,19 @@ form and validation all update automatically.
 ## 6. Data flow and form validation
 
 ```
-Browser form (React Hook Form + zodResolver(leadSchema))
+Browser form (React Hook Form + zodResolver(carrierInquirySchema))
    │  client-side validation, inline field errors
    ▼
 usePostJson → POST /api/leads
    │
    ▼
-route.ts: parseBody(request, leadSchema)     ← same schema, server-side re-validation
+route.ts: parseBody(request, carrierInquirySchema)  ← same schema, server-side re-validation
    │  422 with fieldErrors if invalid
    │  honeypot filled? → silent 200, no work
    ▼
-lead.service.submitLead(data)
+lead.service.submitCarrierInquiry(data)   (contact form: /api/contact → submitContactMessage)
    1. no DATABASE_URL            → not_configured (503), nothing sent
-   2. storeLead → Prisma         → write failed: failed (500), no email sent
+   2. storeLead → Prisma Lead    → write failed: failed (500), no email sent
    3. sendLeadNotification → Resend (only if RESEND_API_KEY + CONTACT_EMAIL set)
         skipped or failed        → warning with the record id; submission still ok
    ▼
@@ -113,6 +114,25 @@ usePostJson → FormStatus message; 422 fieldErrors mapped onto fields (first on
 ```
 
 - **Database is the source of truth.** Email is a notification, never a substitute for storage.
+- **Unified Lead model.** Both forms write to one `Lead` table so the team works a single queue.
+  `type` comes from the endpoint (`/api/leads` = `CARRIER_INQUIRY`, `/api/contact` = `CONTACT`),
+  never from the client.
+
+  | Field group    | Columns                                                                                                                                      | CARRIER_INQUIRY                                   | CONTACT                                                         |
+  | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------- |
+  | Contact        | `fullName`, `email`, `phone`, `companyName`, `mcNumber`, `dotNumber`                                                                         | name, email, phone required; rest optional        | name, email required; phone (US) and company optional           |
+  | Dispatch       | `equipment` (slug), `fleetSize`, `preferredLanes`                                                                                            | equipment and fleet size required; lanes optional | equipment and fleet size optional                               |
+  | Inquiry        | `inquiryType` (enum), `subject`, `message`                                                                                                   | message optional                                  | inquiry type and message (10+ chars) required; subject optional |
+  | Server-managed | `type`, `status`, `sourcePage`, `submissionId` (unique), `ipHash`, `userAgent`, `notifiedAt`, `confirmationSentAt`, `createdAt`, `updatedAt` | never accepted from the client                    | never accepted from the client                                  |
+  | Administration | `notes`, `contactedAt`                                                                                                                       | future admin use                                  | future admin use                                                |
+
+  The database only enforces what holds for every lead; per-type required fields are enforced by
+  Zod. `LeadStatus`: `NEW` (default) → `CONTACTED` → `QUALIFIED` → `ONBOARDED` or `REJECTED`
+  (closed), plus `SPAM`. Indexes: `(status, createdAt)`, `(type, createdAt)`, `email`,
+  `(ipHash, createdAt)`. Column lengths match `leadLimits` in `src/lib/validations/primitives.ts`.
+  `sourcePage`, `ipHash`, `userAgent`, `notifiedAt` and `confirmationSentAt` are not populated
+  yet; later Phase 4 steps set them on the server.
+
 - **Logging:** `src/lib/log.ts` logs only an error's name and code (and the record id), never
   provider messages or submitted values, which can contain personal data.
 

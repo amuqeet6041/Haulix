@@ -7,6 +7,7 @@ import { FormStatus } from "@/components/forms/form-status";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { defaultInquiryType } from "@/content/inquiry-types";
 import { usePostJson } from "@/hooks/use-post-json";
 import { pickFieldErrors } from "@/lib/form-errors";
 import { contactSchema, type ContactData, type ContactInput } from "@/validations";
@@ -30,7 +31,8 @@ export function ContactForm() {
     formState: { errors },
   } = useForm<ContactInput, unknown, ContactData>({
     resolver: zodResolver(contactSchema),
-    defaultValues: { website: "" },
+    // No topic picker yet (Phase 4.5), so every message is sent as a general question.
+    defaultValues: { inquiryType: defaultInquiryType, website: "" },
   });
   const { status, message, submit } = usePostJson("/api/contact");
 
@@ -81,7 +83,7 @@ export function ContactForm() {
             {...register("phone")}
           />
         </FormField>
-        <FormField id="contact-subject" label="Subject" required error={errors.subject?.message}>
+        <FormField id="contact-subject" label="Subject" error={errors.subject?.message}>
           <Input
             id="contact-subject"
             aria-invalid={Boolean(errors.subject)}

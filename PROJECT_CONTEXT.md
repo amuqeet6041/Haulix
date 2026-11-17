@@ -100,6 +100,32 @@ Supersedes §6 "Data flow", §12 and K1/K2/K4/K5 in §16 where they conflict.
 - **Tests:** new `prisma-env`, `email-config`, `services`, `api-routes`, `forms` unit tests.
 - Still open: no database or Resend configured, no migrations, no rate limiting or CAPTCHA (K8).
 
+## 0e. Update — Phase 4.3 unified Lead schema (2026-11-17, uncommitted)
+
+Supersedes §11 (database), §12 (validation rules) and the folder notes for `contact.ts` /
+`contact.service.ts` where they conflict. Full field table: `ARCHITECTURE.md` §6.
+
+- **Schema:** `ContactMessage` removed. One `Lead` model with `type` (`LeadType`:
+  `CARRIER_INQUIRY`, `CONTACT`), `status` (`LeadStatus`: `NEW` default, `CONTACTED`, `QUALIFIED`,
+  `ONBOARDED`, `REJECTED`, new `SPAM`), new `InquiryType` enum (`GENERAL`, `DISPATCH_SERVICES`,
+  `PRICING`, `EQUIPMENT`, `PARTNERSHIP`, `OTHER`). `truckCount` renamed `fleetSize` (nullable);
+  `phone`, `equipment` now nullable. New: `inquiryType`, `subject`, `sourcePage`, `submissionId`
+  (`@unique @default(cuid())`), `ipHash`, `userAgent`, `notifiedAt`, `confirmationSentAt`, `notes`,
+  `contactedAt`. VarChar lengths match `leadLimits`. Indexes `(status, createdAt)`,
+  `(type, createdAt)`, `email`, `(ipHash, createdAt)`. `NewsletterSubscriber` unchanged.
+  **Still no migration** (Phase 4.4 creates the first one against Neon).
+- **Zod** (`src/validations/lead.ts`; `contact.ts` removed): `carrierInquirySchema` (was
+  `leadSchema`) and `contactSchema` share name/email/company/honeypot rules. Contact now requires
+  `inquiryType`; `subject` became optional; contact phone, if given, must be a valid US number
+  (was free text); contact `equipment`/`fleetSize` optional. Unknown keys are stripped, so clients
+  cannot set `type` or any server-managed field. Inquiry labels: `src/content/inquiry-types.ts`.
+- **Services:** `contact.service.ts` merged into `lead.service.ts` (`submitCarrierInquiry`,
+  `submitContactMessage`, pure `toCarrierInquiryRecord` / `toContactRecord`).
+- **Form compatibility (no visual redesign):** ContactForm sends `inquiryType: "GENERAL"` by
+  default until a topic picker is added; its Subject label lost the required asterisk. LeadForm's
+  truck count field is registered as `fleetSize` (id `fleetSize`, label unchanged).
+- Tests: 118 passing (validation per type, enum sync with Prisma, server-managed field stripping).
+
 ---
 
 ## 1. Project overview
@@ -228,7 +254,7 @@ Haulix/
 ├── next.config.ts, postcss.config.mjs, tsconfig.json
 ├── vitest.config.mts, vitest.setup.ts, playwright.config.ts
 ├── prisma.config.ts          Prisma 7 datasource URL config
-├── prisma/schema.prisma      Lead, ContactMessage, NewsletterSubscriber (no migrations/ folder)
+├── prisma/schema.prisma      Unified Lead, NewsletterSubscriber (no migrations/ folder; see §0e)
 ├── public/{fonts,icons,images,logos}/README.md   Placeholders only. NO real assets.
 ├── src/
 │   ├── app/
@@ -492,16 +518,19 @@ verified in a browser during this audit.
 ## 11. Database architecture
 
 PostgreSQL via Prisma 7, driver adapter `@prisma/adapter-pg`. Datasource URL is **not** in
-`schema.prisma` (Prisma 7 rule); `prisma.config.ts` uses `DIRECT_URL` → `DATABASE_URL` → a
-placeholder URL (so `prisma generate` works without a DB). Runtime client (`lib/prisma.ts`) uses
+`schema.prisma` (Prisma 7 rule); `prisma.config.ts` uses `DIRECT_URL` → `DATABASE_URL` and sets
+no datasource when neither exists (Phase 4.2, §0d). Runtime client (`lib/prisma.ts`) uses
 `DATABASE_URL` only, cached on `globalThis`, created on first `getPrisma()` call.
 
-| Model                  | Fields                                                                                                                                                                                                                          | Indexes                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `Lead`                 | `id` cuid, `fullName`, `email`, `phone`, `companyName?`, `mcNumber?`, `dotNumber?`, `equipment` (String slug), `truckCount` Int, `preferredLanes?`, `message?`, `status` `LeadStatus` (default `NEW`), `createdAt`, `updatedAt` | `email`; `(status, createdAt)` |
-| `ContactMessage`       | `id`, `fullName`, `email`, `phone?`, `subject`, `message`, `createdAt`                                                                                                                                                          | `createdAt`                    |
-| `NewsletterSubscriber` | `id`, `email` unique, `createdAt`                                                                                                                                                                                               | unique email                   |
-| enum `LeadStatus`      | `NEW, CONTACTED, QUALIFIED, ONBOARDED, REJECTED`                                                                                                                                                                                | —                              |
+As of Phase 4.3 (§0e), see `ARCHITECTURE.md` §6 for the full field table:
+
+| Model                  | Summary                                                                                                               | Indexes                                                                                           |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `Lead`                 | Unified carrier inquiries and contact messages; `type`, `status`, contact, dispatch, inquiry, server and admin fields | `(status, createdAt)`, `(type, createdAt)`, `email`, `(ipHash, createdAt)`; unique `submissionId` |
+| `NewsletterSubscriber` | `id`, `email` unique, `createdAt`                                                                                     | unique email                                                                                      |
+| enum `LeadType`        | `CARRIER_INQUIRY, CONTACT`                                                                                            | —                                                                                                 |
+| enum `LeadStatus`      | `NEW, CONTACTED, QUALIFIED, ONBOARDED, REJECTED, SPAM`                                                                | —                                                                                                 |
+| enum `InquiryType`     | `GENERAL, DISPATCH_SERVICES, PRICING, EQUIPMENT, PARTNERSHIP, OTHER`                                                  | —                                                                                                 |
 
 - **No `prisma/migrations/` folder.** Nothing has been migrated anywhere.
 - No admin UI to read leads (only Prisma Studio via `npm run db:studio`).
@@ -510,19 +539,21 @@ placeholder URL (so `prisma generate` works without a DB). Runtime client (`lib/
 
 ## 12. API and integration status
 
-| Endpoint          | Method | Body schema        | Behavior                                         | Status                           |
-| ----------------- | ------ | ------------------ | ------------------------------------------------ | -------------------------------- |
-| `/api/leads`      | POST   | `leadSchema`       | Store + email in parallel; ok if either succeeds | Built, unconfigured → 503        |
-| `/api/contact`    | POST   | `contactSchema`    | Same pattern                                     | Built, unconfigured → 503        |
-| `/api/newsletter` | POST   | `newsletterSchema` | DB upsert only                                   | Built, unconfigured → 503, no UI |
+| Endpoint          | Method | Body schema            | Behavior                                               | Status                           |
+| ----------------- | ------ | ---------------------- | ------------------------------------------------------ | -------------------------------- |
+| `/api/leads`      | POST   | `carrierInquirySchema` | Store as `CARRIER_INQUIRY`, then email; ok once stored | Built, unconfigured → 503        |
+| `/api/contact`    | POST   | `contactSchema`        | Store as `CONTACT`, then email; ok once stored         | Built, unconfigured → 503        |
+| `/api/newsletter` | POST   | `newsletterSchema`     | DB upsert only                                         | Built, unconfigured → 503, no UI |
 
 Responses: `{ ok: true, message }` or `{ ok: false, message, fieldErrors? }`. Status codes: 200, 400
 (invalid JSON), 422 (validation), 503 (not configured), 500 (configured but failed). Honeypot → 200.
 
-Validation rules: full name 2–100; email valid, trimmed, lowercased, ≤254; **lead phone must be a
-US number** (10 digits, or 11 starting with 1) while **contact phone is free text ≤30**; MC/DOT
-optional, digits only, 5–10; equipment enum of slugs; truckCount int 1–500; lanes ≤300; lead
-message ≤2000; contact subject 3–150, message 10–3000.
+Validation rules (Phase 4.3): full name 2–100; email valid, trimmed, lowercased, ≤254; phone a
+US number (10 digits, or 11 starting with 1), required for carrier inquiries and optional for
+contact; company ≤150; MC/DOT optional, digits only, 5–10; equipment enum of slugs (required for
+carrier inquiries, optional for contact); fleetSize int 1–500 (same split); lanes ≤300; carrier
+message optional ≤2000; contact `inquiryType` required (enum), subject optional ≤150, message
+10–3000.
 
 Email (Resend): notification to `CONTACT_EMAIL`, `replyTo` = submitter, HTML-escaped table + plain
 text. No auto-reply/confirmation email to the carrier. No newsletter email provider.
@@ -661,7 +692,7 @@ legal pages, integrations, rate limiting, OG image, domain).
   FAQPage), robots, sitemap, favicon.
 - Lead and contact forms with shared Zod validation, honeypot, accessible errors and status.
 - API routes, service layer with honest degradation (503/500), Resend email templates.
-- Prisma 7 schema (Lead, ContactMessage, NewsletterSubscriber) with lazy adapter-based client.
+- Prisma 7 schema (unified Lead, NewsletterSubscriber; see §0e) with lazy adapter-based client.
 - 20 unit tests + 4 e2e smoke tests; README, ARCHITECTURE, public asset READMEs, portal README.
 
 ## 20. Pending work

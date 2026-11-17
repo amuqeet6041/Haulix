@@ -40,11 +40,11 @@ export default async function EquipmentPage({ params }: EquipmentPageProps) {
   return (
     <>
       <PageHeader
-        eyebrow="Services"
+        eyebrow="Equipment"
         title={service.name}
         description={service.shortDescription}
         breadcrumbs={[
-          { label: "Services", href: "/services" },
+          { label: "Equipment", href: "/equipment" },
           { label: service.name, href: `/services/${service.slug}` },
         ]}
       />

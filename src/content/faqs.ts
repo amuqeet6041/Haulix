@@ -27,7 +27,7 @@ export const faqs: Faq[] = [
     id: "equipment-types",
     question: "Which equipment types do you support?",
     answer:
-      "We publish dispatch services for dry van, reefer, flatbed, step deck, power only, box truck and hotshot equipment. See the Services page for details.",
+      "We publish dispatch services for dry van, reefer, flatbed, step deck, power only, box truck and hotshot equipment. See the Equipment page for details.",
   },
   {
     id: "paperwork",
@@ -51,7 +51,7 @@ export const faqs: Faq[] = [
     id: "pricing",
     question: "How much does dispatching cost?",
     answer:
-      "Pricing details will be published on the Pricing page. In the meantime, send a carrier inquiry and we will discuss options with you directly.",
+      "We have not published set prices yet. We put together a quote based on your equipment, number of trucks and lanes. Send a carrier inquiry and we will talk through it with you.",
   },
   {
     id: "getting-started",

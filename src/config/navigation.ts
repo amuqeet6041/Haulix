@@ -7,9 +7,8 @@ export interface NavLink {
 }
 
 /**
- * Primary navigation. Items point at sections of the single-page landing page
- * (see `landingSectionIds`), so they also work from inner pages: `/#services`
- * navigates home and scrolls to the section.
+ * Anchor ids of the single-page landing sections (used by `components/home/*`
+ * and in-page links on the homepage).
  */
 export const landingSectionIds = {
   home: "top",
@@ -21,12 +20,15 @@ export const landingSectionIds = {
   contact: "contact",
 } as const;
 
+/** Primary navigation. Each item links to its own public page. */
 export const mainNav: NavLink[] = [
   { label: "Home", href: "/" },
-  { label: "About", href: `/#${landingSectionIds.about}` },
-  { label: "Services", href: `/#${landingSectionIds.services}` },
-  { label: "How It Works", href: `/#${landingSectionIds.howItWorks}` },
-  { label: "Contact", href: `/#${landingSectionIds.contact}` },
+  { label: "About", href: "/about" },
+  { label: "Services", href: "/services" },
+  { label: "How It Works", href: "/how-it-works" },
+  { label: "Equipment", href: "/equipment" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export const getStartedLink: NavLink = { label: "Get Started", href: "/get-started" };
@@ -34,16 +36,16 @@ export const getStartedLink: NavLink = { label: "Get Started", href: "/get-start
 export const footerNav = {
   company: [
     { label: "Home", href: "/" },
-    { label: "About", href: `/#${landingSectionIds.about}` },
-    { label: "Services", href: `/#${landingSectionIds.services}` },
-    { label: "How It Works", href: `/#${landingSectionIds.howItWorks}` },
-    { label: "FAQ", href: `/#${landingSectionIds.faq}` },
+    { label: "About", href: "/about" },
+    { label: "How It Works", href: "/how-it-works" },
+    { label: "FAQ", href: "/faq" },
+    { label: "Contact", href: "/contact" },
   ],
   services: [
-    { label: "Get Started", href: "/get-started" },
-    { label: "Contact", href: "/contact" },
-    { label: "All Services", href: "/services" },
+    { label: "Dispatch Services", href: "/services" },
+    { label: "Equipment", href: "/equipment" },
     { label: "Pricing", href: "/pricing" },
+    { label: "Get Started", href: "/get-started" },
     { label: "Resources", href: "/resources" },
   ],
   equipment: equipmentServices.map((service) => ({

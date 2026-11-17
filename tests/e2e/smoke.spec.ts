@@ -21,3 +21,21 @@ test("unknown route shows the 404 page", async ({ page }) => {
   const response = await page.goto("/does-not-exist");
   expect(response?.status()).toBe(404);
 });
+
+for (const path of ["/about", "/services", "/how-it-works", "/equipment", "/pricing", "/contact"]) {
+  test(`${path} renders with a single page heading`, async ({ page }) => {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  });
+}
+
+test("main navigation links to the Equipment page", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Equipment" })
+    .click();
+  await expect(page).toHaveURL(/\/equipment$/);
+});

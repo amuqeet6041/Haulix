@@ -8,25 +8,42 @@ import { cn } from "@/lib/utils";
 interface PricingCardProps {
   plan: PricingPlan;
   ctaHref?: string;
+  ctaLabel?: string;
 }
 
-export function PricingCard({ plan, ctaHref = "/get-started" }: PricingCardProps) {
+export function PricingCard({
+  plan,
+  ctaHref = "/get-started",
+  ctaLabel = "Get Started",
+}: PricingCardProps) {
   const Cta = plan.highlighted ? PrimaryButton : SecondaryButton;
 
   return (
-    <div
+    <article
+      aria-labelledby={`plan-${plan.id}`}
       className={cn(
-        "flex h-full flex-col rounded-2xl border bg-background p-7 shadow-soft",
-        plan.highlighted ? "border-orange shadow-lift" : "border-border",
+        "flex h-full flex-col rounded-panel card-surface p-7 transition-colors duration-300 hover:border-card-border-hover sm:p-8",
+        plan.highlighted && "border-orange shadow-lift",
       )}
     >
-      <h3 className="text-xl">{plan.name}</h3>
-      <p className="mt-1 text-sm">{plan.audience}</p>
-      <p className="mt-6 text-2xl font-bold text-foreground">{plan.priceLabel}</p>
-      {plan.priceNote ? (
-        <p className="mt-1 text-sm text-subtle-foreground">{plan.priceNote}</p>
+      <h3 id={`plan-${plan.id}`} className="text-2xl font-semibold tracking-tight">
+        {plan.name}
+      </h3>
+      <p className="mt-1.5 text-sm text-subtle-foreground">{plan.audience}</p>
+      <div className="mt-7 border-t border-white/10 pt-6">
+        <p className="font-display text-2xl font-light tracking-tight text-orange">
+          {plan.priceLabel}
+        </p>
+        {plan.priceNote ? (
+          <p className="mt-1 text-sm text-subtle-foreground">{plan.priceNote}</p>
+        ) : null}
+      </div>
+      {plan.featuresLabel ? (
+        <p className="mt-7 label-caps text-gray">{plan.featuresLabel}</p>
       ) : null}
-      <ul className="mt-6 flex-1 space-y-3 text-sm">
+      <ul
+        className={cn("flex-1 space-y-3 text-sm text-gray", plan.featuresLabel ? "mt-4" : "mt-7")}
+      >
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5">
             <Check className="mt-0.5 size-4 shrink-0 text-orange" aria-hidden="true" />
@@ -35,8 +52,8 @@ export function PricingCard({ plan, ctaHref = "/get-started" }: PricingCardProps
         ))}
       </ul>
       <Cta href={ctaHref} className="mt-8 w-full">
-        Get Started
+        {ctaLabel}
       </Cta>
-    </div>
+    </article>
   );
 }

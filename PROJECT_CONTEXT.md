@@ -52,6 +52,29 @@ This supersedes the design-system notes in §8–§9 where they conflict.
   fields use the card/input tokens.
 - Verified: `npm run check` (33 tests), `npm run build`, screenshots at 1440/820/390 with no overflow.
 
+## 0c. Update — Phase 3 public pages (2026-11-17, uncommitted)
+
+- **Pages built out:** `/about`, `/services`, `/how-it-works`, `/pricing`, `/contact`; **new** `/equipment`
+  (`(marketing)/equipment/page.tsx`). Homepage unchanged. `/portal` untouched.
+- **Content** lives in `src/content/{about,dispatch-services,how-it-works,equipment-page,contact}.ts`
+  and a rewritten `content/pricing.ts`. `/services` now lists the six dispatch services
+  (`dispatchServices`); the seven equipment types moved to `/equipment` (grouped by
+  `equipmentCategories`). `/services/[slug]` detail pages still exist; their breadcrumb is now
+  Home > Equipment > X.
+- **Pricing** is request-a-quote only: three quote profiles (Single truck, Small fleet, Larger fleet)
+  with "Quote on request", no amounts, percentages or guarantees. A unit test enforces this.
+- **Navigation:** `mainNav` now links to pages (Home, About, Services, How It Works, Equipment,
+  Pricing, Contact) instead of landing anchors, so the homepage scroll-spy is inert.
+  `landingSectionIds` still drives homepage section ids. Footer columns updated; sitemap has `/equipment`.
+- `PricingCard` gained `ctaLabel` and `plan.featuresLabel`, uses `card-surface`. New
+  `services/dispatch-service-icon.tsx`. FAQ answers for equipment and pricing updated to match.
+- **Copy rules:** no em/en dashes or slashes in visible copy (unit test scans the Phase 3 content).
+- Contact form unchanged (still 503 "not available yet" until DB or Resend is configured).
+  Contact details render on `/contact` only when `siteConfig.contact` values are set.
+- Verified: `npm run check` (53 tests), `npm run build` (29 static pages), screenshots at
+  1440/1024/390 with no horizontal overflow. Playwright e2e smoke tests added for the six routes but
+  not run (bundled Chromium is not installed; screenshots used installed Edge via `channel: "msedge"`).
+
 ---
 
 ## 1. Project overview

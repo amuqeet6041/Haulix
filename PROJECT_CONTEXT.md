@@ -126,6 +126,23 @@ Supersedes §11 (database), §12 (validation rules) and the folder notes for `co
   truck count field is registered as `fleetSize` (id `fleetSize`, label unchanged).
 - Tests: 118 passing (validation per type, enum sync with Prisma, server-managed field stripping).
 
+## 0f. Update — Phase 4.4 Neon database and first migration (2026-11-18, uncommitted)
+
+Supersedes "no database / no migrations" statements elsewhere in this file.
+
+- **Neon:** project `haulix` (`long-wind-79273161`), org `org-proud-river-52523970`, AWS US East
+  (Ohio), branch `main`, PostgreSQL 18, database `neondb`. Created with `neon init --no-config`
+  (no `neon.ts`, no new npm dependencies); `.neon` link file is git-ignored.
+- **Env:** `.env.local` holds `DATABASE_URL` (pooled, runtime) and `DIRECT_URL` (unpooled, Prisma
+  CLI), plus `DATABASE_URL_UNPOOLED` and `NEON_*` from `neon init`. Never print or commit them.
+- **Migration:** `prisma/migrations/20261117192326_init` (create-only SQL: enums `LeadType`,
+  `LeadStatus`, `InquiryType`; tables `Lead`, `NewsletterSubscriber`; all §0e indexes and the unique
+  `submissionId`). Applied with `prisma migrate dev`; `migrate status` is up to date.
+- Smoke test (fake data, then deleted) passed: both lead types stored, default `NEW`, generated
+  `submissionId`, duplicate `submissionId` rejected (P2002), `SPAM` status settable. Tables empty.
+- Forms now store leads locally (database configured); Resend is still not configured, so
+  notifications are skipped with a warning.
+
 ---
 
 ## 1. Project overview

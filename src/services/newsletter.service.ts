@@ -1,3 +1,4 @@
+import { logServerError } from "@/lib/log";
 import { getPrisma, isDatabaseConfigured } from "@/lib/prisma";
 import type { ServiceResult } from "@/types/api";
 import type { NewsletterData } from "@/validations";
@@ -14,7 +15,7 @@ export async function subscribeToNewsletter({ email }: NewsletterData): Promise<
     });
     return { ok: true };
   } catch (error) {
-    console.error("[newsletter] Failed to store subscriber:", error);
+    logServerError("newsletter", "Failed to store subscriber", error);
     return { ok: false, reason: "failed" };
   }
 }

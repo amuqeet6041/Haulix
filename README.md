@@ -87,10 +87,17 @@ Copy `.env.example` to `.env.local`. Every variable is documented in that file.
 
 Only `NEXT_PUBLIC_*` variables reach the browser. Keep secrets out of those.
 
-**Forms without configuration:** if neither a database nor Resend is configured, the lead and
-contact APIs return a clear "not available yet" (HTTP 503) instead of pretending to succeed. Set
-`DATABASE_URL` and/or `RESEND_API_KEY` + `CONTACT_EMAIL` to turn them on. A submission succeeds if
-it is stored **or** emailed.
+**Forms without configuration:** the database is the source of truth. Until `DATABASE_URL` is
+set, the lead and contact APIs return a clear "not available yet" (HTTP 503) instead of pretending
+to succeed, even if email is configured. A submission succeeds only once it is stored. The team
+notification is sent afterwards and needs **both** `RESEND_API_KEY` and `CONTACT_EMAIL`; if email
+is missing or fails, the stored submission is kept and a warning naming the record id (never
+personal data) is logged.
+
+**Prisma CLI and env files:** `prisma.config.ts` loads `.env.local` first, then `.env` (the same
+precedence as Next.js); variables already set in the real environment always win. If neither
+`DIRECT_URL` nor `DATABASE_URL` is set, `prisma generate` still works, while `migrate` and `studio`
+stop with a "datasource url" error instead of using a placeholder database.
 
 To create the tables once you have a database:
 

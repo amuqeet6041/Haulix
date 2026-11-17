@@ -1,14 +1,14 @@
+import { logServerError } from "@/lib/log";
 import { getPrisma, isDatabaseConfigured } from "@/lib/prisma";
 import type { ServiceResult } from "@/types/api";
 import type { LeadData } from "@/validations";
 
-import { sendLeadNotification } from "./email.service";
+import { reportNotificationOutcome, sendLeadNotification } from "./email.service";
 
-async function storeLead(lead: LeadData): Promise<boolean> {
-  if (!isDatabaseConfigured()) return false;
-
+/** Stores the lead and returns its id, or null when the write failed. */
+async function storeLead(lead: LeadData): Promise<string | null> {
   try {
-    await getPrisma().lead.create({
+    const created = await getPrisma().lead.create({
       data: {
         fullName: lead.fullName,
         email: lead.email,
@@ -21,23 +21,27 @@ async function storeLead(lead: LeadData): Promise<boolean> {
         preferredLanes: lead.preferredLanes ?? null,
         message: lead.message ?? null,
       },
+      select: { id: true },
     });
-    return true;
+    return created.id;
   } catch (error) {
-    console.error("[lead] Failed to store lead:", error);
-    return false;
+    logServerError("lead", "Failed to store lead", error);
+    return null;
   }
 }
 
 /**
- * Handles a validated carrier inquiry: store it and notify the team.
- * Succeeds when at least one of the two worked, so a lead is never silently lost.
+ * Handles a validated carrier inquiry. The database is the source of truth:
+ * the submission succeeds only once the lead is stored. The team notification
+ * is sent afterwards; if it fails, the stored lead is kept and the failure is
+ * logged, so nothing is lost and the visitor is not asked to resubmit.
  */
 export async function submitLead(lead: LeadData): Promise<ServiceResult> {
-  const [stored, notified] = await Promise.all([storeLead(lead), sendLeadNotification(lead)]);
+  if (!isDatabaseConfigured()) return { ok: false, reason: "not_configured" };
 
-  if (stored || notified) return { ok: true };
+  const leadId = await storeLead(lead);
+  if (!leadId) return { ok: false, reason: "failed" };
 
-  const anythingConfigured = isDatabaseConfigured() || Boolean(process.env.RESEND_API_KEY);
-  return { ok: false, reason: anythingConfigured ? "failed" : "not_configured" };
+  reportNotificationOutcome("lead", leadId, await sendLeadNotification(lead));
+  return { ok: true };
 }

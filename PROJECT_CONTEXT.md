@@ -75,6 +75,31 @@ This supersedes the design-system notes in §8–§9 where they conflict.
   1440/1024/390 with no horizontal overflow. Playwright e2e smoke tests added for the six routes but
   not run (bundled Chromium is not installed; screenshots used installed Edge via `channel: "msedge"`).
 
+## 0d. Update — Phase 4.2 backend fixes (2026-11-17, uncommitted)
+
+Supersedes §6 "Data flow", §12 and K1/K2/K4/K5 in §16 where they conflict.
+
+- **Approved Phase 4 direction (not built yet):** one shared Lead table for carrier inquiries and
+  contact messages, Neon PostgreSQL, Prisma 7, Resend, Zod 4, Cloudflare Turnstile behind a feature
+  flag, existing Route Handlers. `/portal` untouched.
+- **K1 fixed:** `prisma.config.ts` loads `.env.local` then `.env` via `prisma/env.ts` (real env vars
+  win). No placeholder URL any more: without `DIRECT_URL`/`DATABASE_URL` the datasource is omitted,
+  so `prisma generate` works and `migrate`/`studio` fail clearly.
+- **K2 fixed:** `getMissingEmailConfig()` / `isEmailConfigured()` in `lib/email/client.ts` check
+  `RESEND_API_KEY` and `CONTACT_EMAIL` together (blank values count as missing).
+- **Store-first submissions:** `submitLead` / `submitContactMessage` return `not_configured` (503)
+  without a database, `failed` (500) if the write fails (no email sent), and `ok` once stored. The
+  notification is sent after storing; a skipped or failed email is logged with the record id only.
+  Configuring Resend alone no longer makes forms work.
+- **Logging:** `lib/log.ts` (`describeError`, `logServerError`, `logServerWarning`) logs error name
+  and code only, never provider messages or submitted values.
+- **Forms (K4/K5 fixed):** `usePostJson.submit()` returns `{ ok }` or `{ ok: false, fieldErrors }`;
+  `pickFieldErrors` (`lib/form-errors.ts`) maps 422 errors onto fields and focuses the first.
+  Non-JSON responses show a server error message. `aria-invalid`/`aria-describedby` added to contact
+  phone and lead company, lanes and message. No visual changes.
+- **Tests:** new `prisma-env`, `email-config`, `services`, `api-routes`, `forms` unit tests.
+- Still open: no database or Resend configured, no migrations, no rate limiting or CAPTCHA (K8).
+
 ---
 
 ## 1. Project overview
@@ -558,16 +583,16 @@ of these.
 
 ### Actual problems (should be fixed)
 
-| #   | Issue                                                                                                                                                                                                                                                                       | Where                                            | Impact                                                                                       |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| K1  | `prisma.config.ts` imports `dotenv/config`, which loads **`.env`**, but README tells users to put values in **`.env.local`**. Prisma CLI (`migrate`, `studio`) will ignore `.env.local` and fall back to the placeholder URL.                                               | `prisma.config.ts`                               | Migrations will fail/confuse until fixed (load `.env.local` explicitly, or document `.env`). |
-| K2  | "Configured" check mismatch: services decide `not_configured` vs `failed` using `RESEND_API_KEY` alone, but email only sends when **both** `RESEND_API_KEY` and `CONTACT_EMAIL` are set. With key set and inbox empty, users get 500 "something went wrong" instead of 503. | `services/lead.service.ts`, `contact.service.ts` | Misleading error; easy fix (use `isEmailConfigured()`).                                      |
-| K3  | Contrast: `text-subtle-foreground` (#94a3b8) on white ≈2.6:1, fails WCAG AA for text.                                                                                                                                                                                       | 5 usages + input placeholders                    | Accessibility.                                                                               |
-| K4  | Server-side `fieldErrors` (422) are returned but the forms only show the summary message, not per-field errors.                                                                                                                                                             | `use-post-json.ts`, forms                        | Minor UX gap (client schema is identical, so rarely hit).                                    |
-| K5  | `usePostJson` treats any non-JSON response (e.g. platform 500/413 HTML page) as "could not reach the server".                                                                                                                                                               | `hooks/use-post-json.ts`                         | Misleading message in edge cases.                                                            |
-| K6  | Root `error.tsx`/`loading.tsx` render without site chrome; `error.tsx` `<main>` lacks `id="main-content"` (skip link target missing); no `global-error.tsx`; errors not logged/reported.                                                                                    | `src/app`                                        | Resilience/UX.                                                                               |
-| K7  | Twitter card `summary_large_image` and OG tags with **no image**.                                                                                                                                                                                                           | `config/metadata.ts`, `lib/seo.ts`               | Poor link previews.                                                                          |
-| K8  | No rate limiting / CAPTCHA on public POST endpoints (honeypot only).                                                                                                                                                                                                        | `src/app/api/*`                                  | Spam/abuse risk once live. Documented as intentional gap.                                    |
+| #   | Issue                                                                                                                                                                                                                                                                                                     | Where                                            | Impact                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| K1  | **Fixed in Phase 4.2 (§0d).** `prisma.config.ts` imported `dotenv/config`, which loads **`.env`**, but README tells users to put values in **`.env.local`**. Prisma CLI (`migrate`, `studio`) will ignore `.env.local` and fall back to the placeholder URL.                                              | `prisma.config.ts`                               | Migrations will fail/confuse until fixed (load `.env.local` explicitly, or document `.env`). |
+| K2  | **Fixed in Phase 4.2 (§0d).** "Configured" check mismatch: services decide `not_configured` vs `failed` using `RESEND_API_KEY` alone, but email only sends when **both** `RESEND_API_KEY` and `CONTACT_EMAIL` are set. With key set and inbox empty, users get 500 "something went wrong" instead of 503. | `services/lead.service.ts`, `contact.service.ts` | Misleading error; easy fix (use `isEmailConfigured()`).                                      |
+| K3  | Contrast: `text-subtle-foreground` (#94a3b8) on white ≈2.6:1, fails WCAG AA for text.                                                                                                                                                                                                                     | 5 usages + input placeholders                    | Accessibility.                                                                               |
+| K4  | **Fixed in Phase 4.2 (§0d).** Server-side `fieldErrors` (422) are returned but the forms only show the summary message, not per-field errors.                                                                                                                                                             | `use-post-json.ts`, forms                        | Minor UX gap (client schema is identical, so rarely hit).                                    |
+| K5  | **Fixed in Phase 4.2 (§0d).** `usePostJson` treated any non-JSON response (e.g. platform 500/413 HTML page) as "could not reach the server".                                                                                                                                                              | `hooks/use-post-json.ts`                         | Misleading message in edge cases.                                                            |
+| K6  | Root `error.tsx`/`loading.tsx` render without site chrome; `error.tsx` `<main>` lacks `id="main-content"` (skip link target missing); no `global-error.tsx`; errors not logged/reported.                                                                                                                  | `src/app`                                        | Resilience/UX.                                                                               |
+| K7  | Twitter card `summary_large_image` and OG tags with **no image**.                                                                                                                                                                                                                                         | `config/metadata.ts`, `lib/seo.ts`               | Poor link previews.                                                                          |
+| K8  | No rate limiting / CAPTCHA on public POST endpoints (honeypot only).                                                                                                                                                                                                                                      | `src/app/api/*`                                  | Spam/abuse risk once live. Documented as intentional gap.                                    |
 
 ### Potential improvements / debt (not bugs)
 
@@ -755,7 +780,8 @@ add Prisma models, link converted leads to accounts, flip `siteConfig.portal.ena
 8. **New form feature:** Zod schema in `src/validations` → service in `src/services` (return
    `ServiceResult`, never throw) → thin route in `src/app/api` using `parseBody` /
    `respondToServiceResult` → client form with RHF + `zodResolver` + `usePostJson` + `FormStatus`.
-9. **Nothing is configured** (DB, email, domain). Forms return 503 by design until env vars are set.
+9. **Nothing is configured** (DB, email, domain). Forms return 503 by design until `DATABASE_URL`
+   is set; the database is the source of truth and email is only a notification (§0d).
 10. Gate before committing: `npm run check` (typecheck, lint, format:check, test). Prettier sorts
     Tailwind classes. Files kebab-case, components PascalCase, `@/` imports, `import type`.
 11. Next step: **Phase 2 foundation hardening** (K1–K8, verify `npm run build`, e2e, CI), then brand

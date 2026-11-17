@@ -100,12 +100,21 @@ route.ts: parseBody(request, leadSchema)     ← same schema, server-side re-val
    │  honeypot filled? → silent 200, no work
    ▼
 lead.service.submitLead(data)
-   ├── storeLead → Prisma (only if DATABASE_URL set)
-   └── sendLeadNotification → Resend (only if RESEND_API_KEY + CONTACT_EMAIL set)
+   1. no DATABASE_URL            → not_configured (503), nothing sent
+   2. storeLead → Prisma         → write failed: failed (500), no email sent
+   3. sendLeadNotification → Resend (only if RESEND_API_KEY + CONTACT_EMAIL set)
+        skipped or failed        → warning with the record id; submission still ok
    ▼
 ServiceResult → respondToServiceResult → JSON { ok, message }
-   ok if stored OR emailed · 503 if nothing configured · 500 if configured but all failed
+   ok only once stored · 503 if no database · 500 if the database write failed
+   ▼
+usePostJson → FormStatus message; 422 fieldErrors mapped onto fields (first one focused);
+              non-JSON responses shown as a server error
 ```
+
+- **Database is the source of truth.** Email is a notification, never a substitute for storage.
+- **Logging:** `src/lib/log.ts` logs only an error's name and code (and the record id), never
+  provider messages or submitted values, which can contain personal data.
 
 - **One schema, two places.** `src/validations/*` is imported by both the form and the route, so
   client and server rules cannot drift. Types are inferred (`z.input` for form fields, `z.output`
@@ -122,11 +131,14 @@ ServiceResult → respondToServiceResult → JSON { ok, message }
   lazily in `getPrisma()`, so importing it never connects. The site builds and runs without
   PostgreSQL.
 - **Connection URLs** are read in `prisma.config.ts` (Prisma 7 no longer reads them from
-  `schema.prisma`). `DIRECT_URL` (migrations) is preferred, then `DATABASE_URL`.
+  `schema.prisma`). `DIRECT_URL` (migrations) is preferred, then `DATABASE_URL`. The config loads
+  `.env.local` then `.env` via `prisma/env.ts` (real environment variables win) and sets no
+  datasource when neither URL exists, so CLI commands fail clearly instead of using a placeholder.
 - **Email:** Resend client is also lazy. Templates escape all user input. `EMAIL_FROM` must be a
   verified sender in production.
 - **Failure behaviour:** services never throw to routes; they return a `ServiceResult` so the API can
-  answer honestly (503 not configured, 500 failed) and never silently lose a lead.
+  answer honestly (503 no database, 500 database write failed) and never report a lead as received
+  unless it is stored.
 - **Adding a feature:** add a Zod schema in `src/validations`, a service in `src/services`, a thin
   route in `src/app/api`, and a form component in `src/components/forms`.
 

@@ -8,7 +8,17 @@ import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { usePostJson } from "@/hooks/use-post-json";
+import { pickFieldErrors } from "@/lib/form-errors";
 import { contactSchema, type ContactData, type ContactInput } from "@/validations";
+
+/** Visible fields in form order; server field errors are mapped onto these. */
+const contactFields = [
+  "fullName",
+  "email",
+  "phone",
+  "subject",
+  "message",
+] as const satisfies readonly (keyof ContactInput)[];
 
 /** General contact form. Validated with the same Zod schema the API route uses. */
 export function ContactForm() {
@@ -16,6 +26,7 @@ export function ContactForm() {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<ContactInput, unknown, ContactData>({
     resolver: zodResolver(contactSchema),
@@ -24,8 +35,14 @@ export function ContactForm() {
   const { status, message, submit } = usePostJson("/api/contact");
 
   async function onSubmit(data: ContactData) {
-    const ok = await submit(data);
-    if (ok) reset();
+    const result = await submit(data);
+    if (result.ok) {
+      reset();
+      return;
+    }
+    pickFieldErrors(result.fieldErrors, contactFields).forEach(([field, fieldMessage], index) =>
+      setError(field, { type: "server", message: fieldMessage }, { shouldFocus: index === 0 }),
+    );
   }
 
   const submitting = status === "submitting";
@@ -55,7 +72,14 @@ export function ContactForm() {
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
         <FormField id="contact-phone" label="Phone" error={errors.phone?.message}>
-          <Input id="contact-phone" type="tel" autoComplete="tel" {...register("phone")} />
+          <Input
+            id="contact-phone"
+            type="tel"
+            autoComplete="tel"
+            aria-invalid={Boolean(errors.phone)}
+            aria-describedby={errors.phone ? "contact-phone-message" : undefined}
+            {...register("phone")}
+          />
         </FormField>
         <FormField id="contact-subject" label="Subject" required error={errors.subject?.message}>
           <Input

@@ -1,14 +1,14 @@
+import { logServerError } from "@/lib/log";
 import { getPrisma, isDatabaseConfigured } from "@/lib/prisma";
 import type { ServiceResult } from "@/types/api";
 import type { ContactData } from "@/validations";
 
-import { sendContactNotification } from "./email.service";
+import { reportNotificationOutcome, sendContactNotification } from "./email.service";
 
-async function storeMessage(message: ContactData): Promise<boolean> {
-  if (!isDatabaseConfigured()) return false;
-
+/** Stores the message and returns its id, or null when the write failed. */
+async function storeMessage(message: ContactData): Promise<string | null> {
   try {
-    await getPrisma().contactMessage.create({
+    const created = await getPrisma().contactMessage.create({
       data: {
         fullName: message.fullName,
         email: message.email,
@@ -16,23 +16,25 @@ async function storeMessage(message: ContactData): Promise<boolean> {
         subject: message.subject,
         message: message.message,
       },
+      select: { id: true },
     });
-    return true;
+    return created.id;
   } catch (error) {
-    console.error("[contact] Failed to store message:", error);
-    return false;
+    logServerError("contact", "Failed to store message", error);
+    return null;
   }
 }
 
-/** Handles a validated contact message: store it and notify the team. */
+/**
+ * Handles a validated contact message. Same rule as leads: it succeeds only
+ * once stored; a failed notification is logged but never loses the message.
+ */
 export async function submitContactMessage(message: ContactData): Promise<ServiceResult> {
-  const [stored, notified] = await Promise.all([
-    storeMessage(message),
-    sendContactNotification(message),
-  ]);
+  if (!isDatabaseConfigured()) return { ok: false, reason: "not_configured" };
 
-  if (stored || notified) return { ok: true };
+  const messageId = await storeMessage(message);
+  if (!messageId) return { ok: false, reason: "failed" };
 
-  const anythingConfigured = isDatabaseConfigured() || Boolean(process.env.RESEND_API_KEY);
-  return { ok: false, reason: anythingConfigured ? "failed" : "not_configured" };
+  reportNotificationOutcome("contact", messageId, await sendContactNotification(message));
+  return { ok: true };
 }

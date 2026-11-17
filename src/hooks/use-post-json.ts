@@ -2,43 +2,87 @@
 
 import { useCallback, useState } from "react";
 
-import type { ApiResponse } from "@/types/api";
+import type { ApiResponse, FieldErrors } from "@/types/api";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
 interface PostJsonState {
   status: Status;
   message: string;
+  fieldErrors: FieldErrors;
+}
+
+/** What `submit` resolves to, so the form can react (reset, map field errors). */
+export type SubmitResult = { ok: true } | { ok: false; fieldErrors: FieldErrors };
+
+export const NETWORK_ERROR_MESSAGE =
+  "We could not reach the server. Check your connection and try again.";
+export const SERVER_ERROR_MESSAGE =
+  "Something went wrong on our side. Please try again in a few minutes.";
+export const UNEXPECTED_RESPONSE_MESSAGE = "We could not process your request. Please try again.";
+
+const idleState: PostJsonState = { status: "idle", message: "", fieldErrors: {} };
+
+function isApiResponse(value: unknown): value is ApiResponse {
+  if (!value || typeof value !== "object") return false;
+  const { ok, message } = value as { ok?: unknown; message?: unknown };
+  return typeof ok === "boolean" && typeof message === "string";
+}
+
+/**
+ * Reads our JSON response. Anything else (an HTML error page from the host,
+ * an empty body, a proxy timeout) becomes a clear error instead of being
+ * mistaken for a network failure.
+ */
+async function readResponse(response: Response): Promise<ApiResponse> {
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    // Not JSON: fall through to the status-based message below.
+  }
+  if (isApiResponse(body)) return body;
+
+  return {
+    ok: false,
+    message: response.status >= 500 ? SERVER_ERROR_MESSAGE : UNEXPECTED_RESPONSE_MESSAGE,
+  };
 }
 
 /** Posts JSON to one of our API routes and tracks the submit state for the form UI. */
 export function usePostJson(endpoint: string) {
-  const [state, setState] = useState<PostJsonState>({ status: "idle", message: "" });
+  const [state, setState] = useState<PostJsonState>(idleState);
 
   const submit = useCallback(
-    async (payload: unknown): Promise<boolean> => {
-      setState({ status: "submitting", message: "" });
+    async (payload: unknown): Promise<SubmitResult> => {
+      setState({ status: "submitting", message: "", fieldErrors: {} });
+
+      let response: Response;
       try {
-        const response = await fetch(endpoint, {
+        response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const body = (await response.json()) as ApiResponse;
-        setState({ status: body.ok ? "success" : "error", message: body.message });
-        return body.ok;
       } catch {
-        setState({
-          status: "error",
-          message: "We could not reach the server. Check your connection and try again.",
-        });
-        return false;
+        setState({ status: "error", message: NETWORK_ERROR_MESSAGE, fieldErrors: {} });
+        return { ok: false, fieldErrors: {} };
       }
+
+      const body = await readResponse(response);
+      if (body.ok) {
+        setState({ status: "success", message: body.message, fieldErrors: {} });
+        return { ok: true };
+      }
+
+      const fieldErrors = body.fieldErrors ?? {};
+      setState({ status: "error", message: body.message, fieldErrors });
+      return { ok: false, fieldErrors };
     },
     [endpoint],
   );
 
-  const reset = useCallback(() => setState({ status: "idle", message: "" }), []);
+  const reset = useCallback(() => setState(idleState), []);
 
   return { ...state, submit, reset };
 }

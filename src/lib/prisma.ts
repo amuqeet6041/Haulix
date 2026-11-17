@@ -16,11 +16,11 @@ import { PrismaClient } from "@/generated/prisma/client";
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export function isDatabaseConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL);
+  return Boolean(process.env.DATABASE_URL?.trim());
 }
 
 export function getPrisma(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.DATABASE_URL?.trim();
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set. Add it to .env.local to enable lead storage.");
   }

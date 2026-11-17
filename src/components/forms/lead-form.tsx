@@ -9,7 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { equipmentServices } from "@/content/services";
 import { usePostJson } from "@/hooks/use-post-json";
+import { pickFieldErrors } from "@/lib/form-errors";
 import { leadSchema, type LeadData, type LeadInput } from "@/validations";
+
+/** Visible fields in form order; server field errors are mapped onto these. */
+const leadFields = [
+  "fullName",
+  "email",
+  "phone",
+  "companyName",
+  "mcNumber",
+  "dotNumber",
+  "equipment",
+  "truckCount",
+  "preferredLanes",
+  "message",
+] as const satisfies readonly (keyof LeadInput)[];
 
 /** Carrier inquiry form. Validated with the same Zod schema the API route uses. */
 export function LeadForm() {
@@ -17,6 +32,7 @@ export function LeadForm() {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<LeadInput, unknown, LeadData>({
     resolver: zodResolver(leadSchema),
@@ -25,8 +41,14 @@ export function LeadForm() {
   const { status, message, submit } = usePostJson("/api/leads");
 
   async function onSubmit(data: LeadData) {
-    const ok = await submit(data);
-    if (ok) reset();
+    const result = await submit(data);
+    if (result.ok) {
+      reset();
+      return;
+    }
+    pickFieldErrors(result.fieldErrors, leadFields).forEach(([field, fieldMessage], index) =>
+      setError(field, { type: "server", message: fieldMessage }, { shouldFocus: index === 0 }),
+    );
   }
 
   const submitting = status === "submitting";
@@ -64,7 +86,13 @@ export function LeadForm() {
           />
         </FormField>
         <FormField id="companyName" label="Company name" error={errors.companyName?.message}>
-          <Input id="companyName" autoComplete="organization" {...register("companyName")} />
+          <Input
+            id="companyName"
+            autoComplete="organization"
+            aria-invalid={Boolean(errors.companyName)}
+            aria-describedby={errors.companyName ? "companyName-message" : undefined}
+            {...register("companyName")}
+          />
         </FormField>
         <FormField
           id="mcNumber"
@@ -134,10 +162,20 @@ export function LeadForm() {
         label="Preferred lanes or regions"
         error={errors.preferredLanes?.message}
       >
-        <Input id="preferredLanes" {...register("preferredLanes")} />
+        <Input
+          id="preferredLanes"
+          aria-invalid={Boolean(errors.preferredLanes)}
+          aria-describedby={errors.preferredLanes ? "preferredLanes-message" : undefined}
+          {...register("preferredLanes")}
+        />
       </FormField>
       <FormField id="message" label="Anything else we should know?" error={errors.message?.message}>
-        <Textarea id="message" {...register("message")} />
+        <Textarea
+          id="message"
+          aria-invalid={Boolean(errors.message)}
+          aria-describedby={errors.message ? "message-message" : undefined}
+          {...register("message")}
+        />
       </FormField>
 
       {/* Honeypot: hidden from people and assistive tech; bots tend to fill it. */}

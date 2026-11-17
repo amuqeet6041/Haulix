@@ -1,3 +1,6 @@
+/** Field-level validation messages keyed by field name. */
+export type FieldErrors = Record<string, string[]>;
+
 /** Shape of every JSON response returned by the public API routes. */
 export type ApiResponse =
   | { ok: true; message: string }
@@ -5,7 +8,7 @@ export type ApiResponse =
       ok: false;
       message: string;
       /** Field-level errors keyed by field name, when validation failed. */
-      fieldErrors?: Record<string, string[]>;
+      fieldErrors?: FieldErrors;
     };
 
 /** Outcome returned by the application services to the API routes. */

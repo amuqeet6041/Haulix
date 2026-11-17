@@ -1,11 +1,20 @@
-import { getFromAddress, getResend, isEmailConfigured } from "@/lib/email/client";
+import {
+  getFromAddress,
+  getMissingEmailConfig,
+  getNotificationRecipient,
+  getResend,
+} from "@/lib/email/client";
 import { contactNotificationEmail, leadNotificationEmail } from "@/lib/email/templates";
+import { logServerError, logServerWarning } from "@/lib/log";
 import type { ContactData, LeadData } from "@/validations";
 
 /**
  * Sends internal notification emails through Resend.
- * Returns false (never throws) so callers can decide how to degrade.
+ * Never throws, so callers can decide how to degrade.
  */
+
+/** Outcome of a notification attempt. */
+export type NotificationResult = "sent" | "not_configured" | "failed";
 
 interface EmailPayload {
   subject: string;
@@ -14,33 +23,53 @@ interface EmailPayload {
   replyTo: string;
 }
 
-async function send(payload: EmailPayload): Promise<boolean> {
-  if (!isEmailConfigured()) return false;
+async function send(payload: EmailPayload): Promise<NotificationResult> {
+  if (getMissingEmailConfig().length > 0) return "not_configured";
 
   try {
     const { error } = await getResend().emails.send({
       from: getFromAddress(),
-      to: process.env.CONTACT_EMAIL as string,
+      to: getNotificationRecipient(),
       replyTo: payload.replyTo,
       subject: payload.subject,
       html: payload.html,
       text: payload.text,
     });
     if (error) {
-      console.error("[email] Resend rejected the message:", error.message);
-      return false;
+      logServerError("email", "Resend rejected the notification", error);
+      return "failed";
     }
-    return true;
+    return "sent";
   } catch (error) {
-    console.error("[email] Failed to send:", error);
-    return false;
+    logServerError("email", "Failed to send the notification", error);
+    return "failed";
   }
 }
 
-export function sendLeadNotification(lead: LeadData): Promise<boolean> {
+/**
+ * Logs a notification that did not go out for a record that IS stored, so the
+ * team can follow up from the database. Logs the record id only, no personal data.
+ */
+export function reportNotificationOutcome(
+  scope: string,
+  recordId: string,
+  result: NotificationResult,
+): void {
+  if (result === "sent") return;
+  if (result === "not_configured") {
+    logServerWarning(
+      scope,
+      `Stored ${recordId}; notification skipped (missing ${getMissingEmailConfig().join(", ")}).`,
+    );
+    return;
+  }
+  logServerWarning(scope, `Stored ${recordId}; notification email failed.`);
+}
+
+export function sendLeadNotification(lead: LeadData): Promise<NotificationResult> {
   return send({ ...leadNotificationEmail(lead), replyTo: lead.email });
 }
 
-export function sendContactNotification(message: ContactData): Promise<boolean> {
+export function sendContactNotification(message: ContactData): Promise<NotificationResult> {
   return send({ ...contactNotificationEmail(message), replyTo: message.email });
 }

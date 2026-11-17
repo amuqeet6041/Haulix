@@ -1,18 +1,19 @@
-import "dotenv/config";
-
 import { defineConfig } from "prisma/config";
+
+import { loadPrismaEnv, resolveDatasourceUrl } from "./prisma/env";
+
+// The Prisma CLI does not load env files itself. Read `.env.local`, then `.env`.
+loadPrismaEnv();
+
+const url = resolveDatasourceUrl(process.env);
 
 /**
  * Prisma 7 reads connection URLs from this file instead of schema.prisma.
- * The fallback keeps `prisma generate` working without a database, so a fresh
- * clone can install and build without PostgreSQL.
+ * The datasource is only set when a URL exists: `prisma generate` (run on
+ * install) does not need one, while `migrate` and `studio` fail loudly
+ * without one rather than falling back to a placeholder database.
  */
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  datasource: {
-    url:
-      process.env.DIRECT_URL ||
-      process.env.DATABASE_URL ||
-      "postgresql://placeholder:placeholder@localhost:5432/haulix",
-  },
+  ...(url ? { datasource: { url } } : {}),
 });

@@ -16,6 +16,7 @@ export const leadLimits = {
   carrierMessage: 2000,
   contactMessage: 3000,
   fleetSize: 500,
+  sourcePage: 500,
 } as const;
 
 export const fullNameSchema = z

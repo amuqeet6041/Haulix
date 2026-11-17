@@ -1,4 +1,6 @@
+import { siteConfig } from "@/config/site";
 import { parseBody, respondToServiceResult, silentSuccess } from "@/lib/api-response";
+import { readSubmissionMeta } from "@/lib/submission";
 import { submitCarrierInquiry } from "@/services/lead.service";
 import { carrierInquirySchema } from "@/validations";
 
@@ -11,6 +13,9 @@ export async function POST(request: Request) {
 
   if (parsed.data.website) return silentSuccess();
 
-  const result = await submitCarrierInquiry(parsed.data);
+  const result = await submitCarrierInquiry(
+    parsed.data,
+    readSubmissionMeta(request, siteConfig.url),
+  );
   return respondToServiceResult(result, "Thanks! We received your inquiry and will be in touch.");
 }

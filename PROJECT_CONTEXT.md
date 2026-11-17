@@ -126,6 +126,24 @@ Supersedes §11 (database), §12 (validation rules) and the folder notes for `co
   truck count field is registered as `fleetSize` (id `fleetSize`, label unchanged).
 - Tests: 118 passing (validation per type, enum sync with Prisma, server-managed field stripping).
 
+## 0g. Update — Phase 4.5 forms connected to the lead system (2026-11-18, uncommitted)
+
+Supersedes the §0e "Form compatibility" note and the equipment preselect items in §10 and §16.
+
+- **Contact form** now has: inquiry type select ("What can we help with?", required, default
+  General question, labels from `content/inquiry-types.ts`), company name, optional equipment
+  select ("Not specified" default) and optional number of trucks, alongside name, email, phone,
+  subject and message. Same components and tokens; two-column grid; no overflow at 390/1440 px.
+- **Carrier form** payload matches `carrierInquirySchema` (test checks the keys). Preselects
+  equipment from `/get-started?equipment=<slug>`; equipment pages' CTA links there.
+- **Source page and submission id:** see `ARCHITECTURE.md` §6 "Submission metadata"
+  (`src/lib/submission.ts`, `hooks/use-submission-id.ts`, `Idempotency-Key` header). Duplicates
+  return 200 without a second row or email.
+- Verified against Neon with fake data (rows deleted): contact and carrier rows stored with the
+  right type, inquiry type, equipment, fleet size, `sourcePage` and header `submissionId`; a retry
+  with the same key stored nothing new; invalid equipment returned 422.
+- Tests: 146 passing.
+
 ## 0f. Update — Phase 4.4 Neon database and first migration (2026-11-18, uncommitted)
 
 Supersedes "no database / no migrations" statements elsewhere in this file.

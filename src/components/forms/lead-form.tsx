@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 
 import { FormStatus } from "@/components/forms/form-status";
@@ -9,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { equipmentServices } from "@/content/services";
 import { usePostJson } from "@/hooks/use-post-json";
+import { useSubmissionId } from "@/hooks/use-submission-id";
 import { pickFieldErrors } from "@/lib/form-errors";
+import { equipmentFromSearch } from "@/lib/submission";
 import {
   carrierInquirySchema,
   type CarrierInquiryData,
@@ -30,23 +33,33 @@ const leadFields = [
   "message",
 ] as const satisfies readonly (keyof CarrierInquiryInput)[];
 
-/** Carrier inquiry form. Validated with the same Zod schema the API route uses. */
+/** Carrier inquiry form (lead type CARRIER_INQUIRY). Validated with the same Zod schema the API route uses. */
 export function LeadForm() {
   const {
     register,
     handleSubmit,
     reset,
     setError,
+    setValue,
     formState: { errors },
   } = useForm<CarrierInquiryInput, unknown, CarrierInquiryData>({
     resolver: zodResolver(carrierInquirySchema),
     defaultValues: { website: "" },
   });
   const { status, message, submit } = usePostJson("/api/leads");
+  const submissionId = useSubmissionId();
+
+  // Preselect equipment from /get-started?equipment=<slug>. Read after mount so the page stays
+  // statically rendered; unknown slugs are ignored and the select keeps its placeholder.
+  useEffect(() => {
+    const equipment = equipmentFromSearch(window.location.search);
+    if (equipment) setValue("equipment", equipment);
+  }, [setValue]);
 
   async function onSubmit(data: CarrierInquiryData) {
-    const result = await submit(data);
+    const result = await submit(data, { submissionId: submissionId.get() });
     if (result.ok) {
+      submissionId.renew();
       reset();
       return;
     }

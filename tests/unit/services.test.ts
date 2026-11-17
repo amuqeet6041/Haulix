@@ -17,6 +17,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   leadCreate: vi.fn(),
+  leadFindUnique: vi.fn(),
   newsletterUpsert: vi.fn(),
   resendSend: vi.fn(),
 }));
@@ -24,7 +25,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({
   isDatabaseConfigured: () => Boolean(process.env.DATABASE_URL),
   getPrisma: () => ({
-    lead: { create: mocks.leadCreate },
+    lead: { create: mocks.leadCreate, findUnique: mocks.leadFindUnique },
     newsletterSubscriber: { upsert: mocks.newsletterUpsert },
   }),
 }));
@@ -140,10 +141,67 @@ describe("lead records", () => {
     const contactRecord = toContactRecord(parsedContact);
     expect(inquiryRecord.type).toBe("CARRIER_INQUIRY");
     expect(contactRecord.type).toBe("CONTACT");
-    for (const field of serverManagedFields) {
-      expect(inquiryRecord).not.toHaveProperty(field);
-      expect(contactRecord).not.toHaveProperty(field);
+    for (const record of [inquiryRecord, contactRecord]) {
+      // Server metadata comes only from the meta argument; without it the page is unknown
+      // and the database generates the submission id.
+      expect(record.sourcePage).toBeNull();
+      for (const field of serverManagedFields.filter((f) => f !== "sourcePage")) {
+        expect(record).not.toHaveProperty(field);
+      }
     }
+  });
+
+  it("adds server-derived source page and submission id", () => {
+    const meta = {
+      sourcePage: "/contact",
+      submissionId: "3f1c2b8e-5d4a-4c1e-9a7b-2e6f8d9c0a1b",
+    };
+    expect(toContactRecord(contact, meta)).toMatchObject(meta);
+    expect(toCarrierInquiryRecord(inquiry, meta)).toMatchObject(meta);
+  });
+});
+
+describe("duplicate submissions", () => {
+  const submissionId = "3f1c2b8e-5d4a-4c1e-9a7b-2e6f8d9c0a1b";
+
+  it("treats a repeated submission id as success without a second email", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    configureEmail();
+    mocks.leadCreate.mockRejectedValue(Object.assign(new Error("Unique"), { code: "P2002" }));
+    mocks.leadFindUnique.mockResolvedValue({ id: "lead_existing" });
+
+    await expect(submitContactMessage(contact, { submissionId })).resolves.toEqual({ ok: true });
+    expect(mocks.leadFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { submissionId } }),
+    );
+    expect(mocks.resendSend).not.toHaveBeenCalled();
+    expect(loggedText()).toContain("Duplicate submission");
+  });
+
+  it("still fails on a unique violation that is not a known submission", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    mocks.leadCreate.mockRejectedValue(Object.assign(new Error("Unique"), { code: "P2002" }));
+    mocks.leadFindUnique.mockResolvedValue(null);
+
+    await expect(submitCarrierInquiry(inquiry, { submissionId })).resolves.toEqual({
+      ok: false,
+      reason: "failed",
+    });
+  });
+
+  it("does not look up duplicates when no submission id was sent", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    mocks.leadCreate.mockRejectedValue(Object.assign(new Error("Unique"), { code: "P2002" }));
+
+    await expect(submitCarrierInquiry(inquiry)).resolves.toEqual({ ok: false, reason: "failed" });
+    expect(mocks.leadFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("stores the submission id and source page with the lead", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+
+    await submitCarrierInquiry(inquiry, { submissionId, sourcePage: "/get-started" });
+    expect(storedRecord()).toMatchObject({ submissionId, sourcePage: "/get-started" });
   });
 });
 

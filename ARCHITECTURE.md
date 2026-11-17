@@ -130,8 +130,21 @@ usePostJson → FormStatus message; 422 fieldErrors mapped onto fields (first on
   Zod. `LeadStatus`: `NEW` (default) → `CONTACTED` → `QUALIFIED` → `ONBOARDED` or `REJECTED`
   (closed), plus `SPAM`. Indexes: `(status, createdAt)`, `(type, createdAt)`, `email`,
   `(ipHash, createdAt)`. Column lengths match `leadLimits` in `src/lib/validations/primitives.ts`.
-  `sourcePage`, `ipHash`, `userAgent`, `notifiedAt` and `confirmationSentAt` are not populated
-  yet; later Phase 4 steps set them on the server.
+  `ipHash`, `userAgent`, `notifiedAt` and `confirmationSentAt` are not populated yet; later
+  Phase 4 steps set them on the server.
+
+- **Submission metadata** (`src/lib/submission.ts`), never read from the JSON body:
+  - `sourcePage`: derived by the route from the `Referer` header, only for the request's own
+    origin or `NEXT_PUBLIC_SITE_URL`, stored as a bare path (query and fragment dropped, `/api/*`
+    rejected, max 500 chars). Missing or foreign referers store `null`.
+  - `submissionId`: idempotency key. Each form keeps one UUID per attempt (`useSubmissionId`) and
+    sends it as the `Idempotency-Key` header; it is reused on retry and renewed after success.
+    The route accepts only a valid UUID, otherwise the database default (cuid) applies. A unique
+    violation on a key that already exists is treated as the same submission: `200`, no second row,
+    no second notification.
+- **Equipment prefill:** `/get-started?equipment=<slug>` preselects a known slug on mount
+  (`equipmentFromSearch`); unknown values are ignored and the page stays static. Equipment pages
+  link to it.
 
 - **Logging:** `src/lib/log.ts` logs only an error's name and code (and the record id), never
   provider messages or submitted values, which can contain personal data.

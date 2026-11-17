@@ -1,4 +1,6 @@
+import { siteConfig } from "@/config/site";
 import { parseBody, respondToServiceResult, silentSuccess } from "@/lib/api-response";
+import { readSubmissionMeta } from "@/lib/submission";
 import { submitContactMessage } from "@/services/lead.service";
 import { contactSchema } from "@/validations";
 
@@ -11,6 +13,9 @@ export async function POST(request: Request) {
 
   if (parsed.data.website) return silentSuccess();
 
-  const result = await submitContactMessage(parsed.data);
+  const result = await submitContactMessage(
+    parsed.data,
+    readSubmissionMeta(request, siteConfig.url),
+  );
   return respondToServiceResult(result, "Thanks! Your message has been sent.");
 }

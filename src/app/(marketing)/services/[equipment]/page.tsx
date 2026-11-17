@@ -61,7 +61,7 @@ export default async function EquipmentPage({ params }: EquipmentPageProps) {
             ))}
           </ul>
           <div className="mt-10">
-            <PrimaryButton href="/get-started" size="lg">
+            <PrimaryButton href={`/get-started?equipment=${service.slug}`} size="lg">
               Get started with {service.name.replace(" Dispatch", "")}
             </PrimaryButton>
           </div>

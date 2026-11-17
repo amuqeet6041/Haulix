@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 
+import { SUBMISSION_ID_HEADER } from "@/lib/submission";
 import type { ApiResponse, FieldErrors } from "@/types/api";
 
 type Status = "idle" | "submitting" | "success" | "error";
@@ -10,6 +11,11 @@ interface PostJsonState {
   status: Status;
   message: string;
   fieldErrors: FieldErrors;
+}
+
+export interface SubmitOptions {
+  /** Idempotency key for this submission attempt, sent as a header (see lib/submission.ts). */
+  submissionId?: string;
 }
 
 /** What `submit` resolves to, so the form can react (reset, map field errors). */
@@ -54,14 +60,17 @@ export function usePostJson(endpoint: string) {
   const [state, setState] = useState<PostJsonState>(idleState);
 
   const submit = useCallback(
-    async (payload: unknown): Promise<SubmitResult> => {
+    async (payload: unknown, options: SubmitOptions = {}): Promise<SubmitResult> => {
       setState({ status: "submitting", message: "", fieldErrors: {} });
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (options.submissionId) headers[SUBMISSION_ID_HEADER] = options.submissionId;
 
       let response: Response;
       try {
         response = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(payload),
         });
       } catch {

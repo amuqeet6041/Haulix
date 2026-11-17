@@ -6,9 +6,11 @@ import { useForm } from "react-hook-form";
 import { FormStatus } from "@/components/forms/form-status";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea } from "@/components/ui/input";
-import { defaultInquiryType } from "@/content/inquiry-types";
+import { Input, Select, Textarea } from "@/components/ui/input";
+import { defaultInquiryType, inquiryTypes } from "@/content/inquiry-types";
+import { equipmentServices } from "@/content/services";
 import { usePostJson } from "@/hooks/use-post-json";
+import { useSubmissionId } from "@/hooks/use-submission-id";
 import { pickFieldErrors } from "@/lib/form-errors";
 import { contactSchema, type ContactData, type ContactInput } from "@/validations";
 
@@ -17,11 +19,15 @@ const contactFields = [
   "fullName",
   "email",
   "phone",
+  "companyName",
+  "inquiryType",
   "subject",
+  "equipment",
+  "fleetSize",
   "message",
 ] as const satisfies readonly (keyof ContactInput)[];
 
-/** General contact form. Validated with the same Zod schema the API route uses. */
+/** General contact form (lead type CONTACT). Validated with the same Zod schema the API route uses. */
 export function ContactForm() {
   const {
     register,
@@ -31,14 +37,15 @@ export function ContactForm() {
     formState: { errors },
   } = useForm<ContactInput, unknown, ContactData>({
     resolver: zodResolver(contactSchema),
-    // No topic picker yet (Phase 4.5), so every message is sent as a general question.
-    defaultValues: { inquiryType: defaultInquiryType, website: "" },
+    defaultValues: { inquiryType: defaultInquiryType, equipment: "", website: "" },
   });
   const { status, message, submit } = usePostJson("/api/contact");
+  const submissionId = useSubmissionId();
 
   async function onSubmit(data: ContactData) {
-    const result = await submit(data);
+    const result = await submit(data, { submissionId: submissionId.get() });
     if (result.ok) {
+      submissionId.renew();
       reset();
       return;
     }
@@ -83,12 +90,74 @@ export function ContactForm() {
             {...register("phone")}
           />
         </FormField>
+        <FormField id="contact-company" label="Company name" error={errors.companyName?.message}>
+          <Input
+            id="contact-company"
+            autoComplete="organization"
+            aria-invalid={Boolean(errors.companyName)}
+            aria-describedby={errors.companyName ? "contact-company-message" : undefined}
+            {...register("companyName")}
+          />
+        </FormField>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormField
+          id="contact-inquiry-type"
+          label="What can we help with?"
+          required
+          error={errors.inquiryType?.message}
+        >
+          <Select
+            id="contact-inquiry-type"
+            aria-invalid={Boolean(errors.inquiryType)}
+            aria-describedby={errors.inquiryType ? "contact-inquiry-type-message" : undefined}
+            {...register("inquiryType")}
+          >
+            {inquiryTypes.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </Select>
+        </FormField>
         <FormField id="contact-subject" label="Subject" error={errors.subject?.message}>
           <Input
             id="contact-subject"
             aria-invalid={Boolean(errors.subject)}
             aria-describedby={errors.subject ? "contact-subject-message" : undefined}
             {...register("subject")}
+          />
+        </FormField>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FormField id="contact-equipment" label="Equipment type" error={errors.equipment?.message}>
+          <Select
+            id="contact-equipment"
+            aria-invalid={Boolean(errors.equipment)}
+            aria-describedby={errors.equipment ? "contact-equipment-message" : undefined}
+            {...register("equipment")}
+          >
+            <option value="">Not specified</option>
+            {equipmentServices.map((service) => (
+              <option key={service.slug} value={service.slug}>
+                {service.name.replace(" Dispatch", "")}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        <FormField
+          id="contact-fleet-size"
+          label="Number of trucks"
+          error={errors.fleetSize?.message}
+        >
+          <Input
+            id="contact-fleet-size"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            aria-invalid={Boolean(errors.fleetSize)}
+            aria-describedby={errors.fleetSize ? "contact-fleet-size-message" : undefined}
+            {...register("fleetSize", { valueAsNumber: true })}
           />
         </FormField>
       </div>

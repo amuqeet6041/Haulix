@@ -1,0 +1,32 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# generated Prisma client (created by `npm run db:generate`)
+/src/generated
+
+# testing
+/coverage
+/playwright-report
+/test-results
+
+# environment files (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+npm-debug.log*
+
+# vercel
+.vercel

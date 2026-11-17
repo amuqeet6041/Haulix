@@ -1,0 +1,57 @@
+// HAULIX data model (Module 1: lead generation only).
+// Carrier Portal models (users, trucks, loads, documents) will be added in Module 2.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  ONBOARDED
+  REJECTED
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  fullName     String
+  email        String
+  phone        String
+  companyName  String?
+  mcNumber     String?
+  dotNumber    String?
+  equipment    String
+  truckCount   Int
+  preferredLanes String?
+  message      String?
+  status       LeadStatus @default(NEW)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([email])
+  @@index([status, createdAt])
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  fullName  String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,122 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * HAULIX design tokens.
+ * This is the ONLY place raw colors are defined. Components use the semantic
+ * Tailwind classes generated from the @theme block below (bg-navy, text-brand,
+ * text-muted-foreground, border-border, ...). To rebrand, edit the values here.
+ */
+:root {
+  /* Brand palette (proposed starting colors) */
+  --navy-950: #080e19; /* deep background */
+  --navy-900: #0b1220; /* primary navy */
+  --navy-800: #111c2e; /* secondary navy */
+  --brand-500: #3b82f6; /* accent blue */
+  --brand-600: #2563eb; /* electric blue */
+  --surface-light: #f8fafc;
+  --white: #ffffff;
+  --slate-body: #475569;
+  --slate-muted: #94a3b8;
+  --slate-border: #e2e8f0;
+
+  /* Semantic tokens */
+  --background: var(--white);
+  --foreground: var(--navy-900);
+  --surface: var(--surface-light);
+  --muted-foreground: var(--slate-body);
+  --subtle-foreground: var(--slate-muted);
+  --on-dark-muted: var(--slate-muted);
+  --border: var(--slate-border);
+  --ring: var(--brand-600);
+  --primary: var(--brand-600);
+  --primary-foreground: var(--white);
+  --accent: var(--brand-500);
+  --destructive: #dc2626;
+
+  --radius: 0.75rem;
+  --shadow-soft: 0 1px 2px rgb(11 18 32 / 0.04), 0 8px 24px -8px rgb(11 18 32 / 0.1);
+  --shadow-lift: 0 2px 4px rgb(11 18 32 / 0.05), 0 16px 40px -12px rgb(11 18 32 / 0.18);
+}
+
+@theme inline {
+  --color-navy-950: var(--navy-950);
+  --color-navy-900: var(--navy-900);
+  --color-navy-800: var(--navy-800);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-on-dark-muted: var(--on-dark-muted);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-destructive: var(--destructive);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-lift: var(--shadow-lift);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--muted-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--foreground);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@layer utilities {
+  /* Subtle brand gradient used on dark hero bands. */
+  .bg-hero-gradient {
+    background-image:
+      radial-gradient(60rem 30rem at 85% -10%, rgb(37 99 235 / 0.28), transparent 60%),
+      linear-gradient(180deg, var(--navy-900), var(--navy-950));
+  }
+}

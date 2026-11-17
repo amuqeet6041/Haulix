@@ -30,6 +30,24 @@ export const faqs: Faq[] = [
       "We publish dispatch services for dry van, reefer, flatbed, step deck, power only, box truck and hotshot equipment. See the Services page for details.",
   },
   {
+    id: "paperwork",
+    question: "What paperwork do you help with?",
+    answer:
+      "We help with rate confirmations and the communication with brokers and shippers that comes with each load. Any other admin support is agreed with you when we start working together.",
+  },
+  {
+    id: "fleets",
+    question: "Do you work with fleets or only single trucks?",
+    answer:
+      "Both. HAULIX works with single-truck owner-operators as well as small and medium fleets. Tell us how many trucks you run in the inquiry form.",
+  },
+  {
+    id: "what-to-prepare",
+    question: "What information do I need to get started?",
+    answer:
+      "Your name, contact details, equipment type and number of trucks. Your MC and DOT numbers and preferred lanes are optional on the form but help us understand your operation.",
+  },
+  {
     id: "pricing",
     question: "How much does dispatching cost?",
     answer:

@@ -15,7 +15,11 @@ interface FaqAccordionProps {
 /** Client component: expand/collapse needs interactivity. */
 export function FaqAccordion({ items }: FaqAccordionProps) {
   return (
-    <Accordion type="single" collapsible className="rounded-2xl border border-border px-6">
+    <Accordion
+      type="single"
+      collapsible
+      className="rounded-panel border border-white/10 bg-ink-warm/60 px-6 sm:px-8"
+    >
       {items.map((item) => (
         <AccordionItem key={item.id} value={item.id}>
           <AccordionTrigger>{item.question}</AccordionTrigger>

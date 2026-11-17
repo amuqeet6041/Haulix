@@ -14,7 +14,7 @@ export function LoadingState({ label = "Loading…", className }: LoadingStatePr
       aria-live="polite"
       className={cn("flex flex-col items-center justify-center gap-3 py-20", className)}
     >
-      <Loader2 className="size-8 animate-spin text-brand-600" aria-hidden="true" />
+      <Loader2 className="size-8 animate-spin text-orange" aria-hidden="true" />
       <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   );

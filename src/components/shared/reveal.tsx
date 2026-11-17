@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { MotionConfig, motion } from "framer-motion";
 import * as React from "react";
 
 interface RevealProps {
@@ -11,25 +11,25 @@ interface RevealProps {
 }
 
 /**
- * Subtle fade-up on first view. Respects the user's reduced-motion setting.
- * Keep usage restrained: hero content and card grids only.
+ * Subtle fade-up on first view. Keep usage restrained: section content and
+ * card grids only.
+ *
+ * Always renders the same element on server and client (no hydration
+ * mismatch). With `reducedMotion="user"`, Framer Motion drops the movement for
+ * people who prefer reduced motion and keeps only the opacity fade.
  */
 export function Reveal({ children, delay = 0, className }: RevealProps) {
-  const reduceMotion = useReducedMotion();
-
-  if (reduceMotion) {
-    return <div className={className}>{children}</div>;
-  }
-
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.45, delay, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
+    <MotionConfig reducedMotion="user">
+      <motion.div
+        className={className}
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-40px" }}
+        transition={{ duration: 0.5, delay, ease: "easeOut" }}
+      >
+        {children}
+      </motion.div>
+    </MotionConfig>
   );
 }

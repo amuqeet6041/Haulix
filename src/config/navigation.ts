@@ -6,59 +6,45 @@ export interface NavLink {
   description?: string;
 }
 
-export interface NavGroup {
-  label: string;
-  href?: string;
-  children: NavLink[];
-}
+/**
+ * Primary navigation. Items point at sections of the single-page landing page
+ * (see `landingSectionIds`), so they also work from inner pages: `/#services`
+ * navigates home and scrolls to the section.
+ */
+export const landingSectionIds = {
+  home: "top",
+  about: "about",
+  services: "services",
+  howItWorks: "how-it-works",
+  equipment: "equipment",
+  faq: "faq",
+  contact: "contact",
+} as const;
 
-export type NavItem = ({ type: "link" } & NavLink) | ({ type: "group" } & NavGroup);
-
-export const mainNav: NavItem[] = [
-  { type: "link", label: "Home", href: "/" },
-  { type: "link", label: "About", href: "/about" },
-  {
-    type: "group",
-    label: "Services",
-    href: "/services",
-    children: [
-      { label: "All Services", href: "/services" },
-      ...equipmentServices.map((service) => ({
-        label: service.name,
-        href: `/services/${service.slug}`,
-      })),
-    ],
-  },
-  { type: "link", label: "Pricing", href: "/pricing" },
-  { type: "link", label: "How It Works", href: "/how-it-works" },
-  {
-    type: "group",
-    label: "Resources",
-    href: "/resources",
-    children: [
-      { label: "Resources", href: "/resources" },
-      { label: "Blog", href: "/blog" },
-      { label: "FAQ", href: "/faq" },
-    ],
-  },
-  { type: "link", label: "Contact", href: "/contact" },
+export const mainNav: NavLink[] = [
+  { label: "Home", href: "/" },
+  { label: "About", href: `/#${landingSectionIds.about}` },
+  { label: "Services", href: `/#${landingSectionIds.services}` },
+  { label: "How It Works", href: `/#${landingSectionIds.howItWorks}` },
+  { label: "Contact", href: `/#${landingSectionIds.contact}` },
 ];
 
 export const getStartedLink: NavLink = { label: "Get Started", href: "/get-started" };
 
 export const footerNav = {
   company: [
-    { label: "About", href: "/about" },
-    { label: "How It Works", href: "/how-it-works" },
-    { label: "Pricing", href: "/pricing" },
-    { label: "Contact", href: "/contact" },
+    { label: "Home", href: "/" },
+    { label: "About", href: `/#${landingSectionIds.about}` },
+    { label: "Services", href: `/#${landingSectionIds.services}` },
+    { label: "How It Works", href: `/#${landingSectionIds.howItWorks}` },
+    { label: "FAQ", href: `/#${landingSectionIds.faq}` },
   ],
   services: [
-    { label: "All Services", href: "/services" },
     { label: "Get Started", href: "/get-started" },
-    { label: "FAQ", href: "/faq" },
+    { label: "Contact", href: "/contact" },
+    { label: "All Services", href: "/services" },
+    { label: "Pricing", href: "/pricing" },
     { label: "Resources", href: "/resources" },
-    { label: "Blog", href: "/blog" },
   ],
   equipment: equipmentServices.map((service) => ({
     label: service.name.replace(" Dispatch", ""),

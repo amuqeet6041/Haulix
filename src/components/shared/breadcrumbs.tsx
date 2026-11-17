@@ -42,7 +42,7 @@ export function Breadcrumbs({ items, onDark = false }: BreadcrumbsProps) {
                       {item.label}
                     </span>
                   ) : (
-                    <Link href={item.href} className="transition-colors hover:text-brand-500">
+                    <Link href={item.href} className="transition-colors hover:text-orange-soft">
                       {item.label}
                     </Link>
                   )}

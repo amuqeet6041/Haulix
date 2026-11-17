@@ -4,47 +4,86 @@
 /*
  * HAULIX design tokens.
  * This is the ONLY place raw colors are defined. Components use the semantic
- * Tailwind classes generated from the @theme block below (bg-navy, text-brand,
+ * Tailwind classes generated from the @theme block below (bg-ink, text-orange,
  * text-muted-foreground, border-border, ...). To rebrand, edit the values here.
+ *
+ * Official HAULIX Logistics palette. Do not add colors outside this set; use
+ * alpha variants (e.g. bg-orange/10, border-cream/10) for tints instead.
  */
 :root {
-  /* Brand palette (proposed starting colors) */
-  --navy-950: #080e19; /* deep background */
-  --navy-900: #0b1220; /* primary navy */
-  --navy-800: #111c2e; /* secondary navy */
-  --brand-500: #3b82f6; /* accent blue */
-  --brand-600: #2563eb; /* electric blue */
-  --surface-light: #f8fafc;
-  --white: #ffffff;
-  --slate-body: #475569;
-  --slate-muted: #94a3b8;
-  --slate-border: #e2e8f0;
+  /* Brand palette */
+  --ink: #141414; /* primary background */
+  --ink-warm: #1d1614; /* secondary background */
+  --brown: #2e1b12; /* dark brown */
+  --orange: #e86416; /* primary orange */
+  --orange-soft: #d98855; /* secondary orange */
+  --cream: #f3f0eb; /* warm white */
+  --gray: #d5d5d5; /* soft gray */
 
-  /* Semantic tokens */
-  --background: var(--white);
-  --foreground: var(--navy-900);
-  --surface: var(--surface-light);
-  --muted-foreground: var(--slate-body);
-  --subtle-foreground: var(--slate-muted);
-  --on-dark-muted: var(--slate-muted);
-  --border: var(--slate-border);
-  --ring: var(--brand-600);
-  --primary: var(--brand-600);
-  --primary-foreground: var(--white);
-  --accent: var(--brand-500);
-  --destructive: #dc2626;
+  /* Semantic tokens (dark-first site) */
+  --background: var(--ink);
+  --foreground: var(--cream);
+  --surface: var(--ink-warm);
+  --muted-foreground: var(--gray);
+  /* Soft gray mixed into the background: ~6:1 on --ink, AA for body text. */
+  --subtle-foreground: color-mix(in srgb, var(--gray) 66%, var(--ink));
+  --on-dark-muted: var(--gray);
+  --border: color-mix(in srgb, var(--cream) 11%, transparent);
+  --ring: var(--orange);
+  --primary: var(--orange);
+  /* Dark text on orange: ~5.5:1, passes WCAG AA (white on orange does not). */
+  --primary-foreground: var(--ink);
+  --accent: var(--orange-soft);
+  /* Functional error color, lightened for contrast on dark backgrounds. */
+  --destructive: #f87171;
 
+  /* Surfaces and lines used by cards, panels and form fields. */
+  --card: color-mix(in srgb, var(--ink-warm) 70%, transparent);
+  --card-border: color-mix(in srgb, var(--cream) 10%, transparent);
+  --card-border-hover: color-mix(in srgb, var(--orange) 50%, transparent);
+  --input: color-mix(in srgb, var(--ink-warm) 60%, transparent);
+  --input-border: color-mix(in srgb, var(--cream) 14%, transparent);
+
+  /* Radii. Small controls use the --radius scale; large surfaces use the named radii. */
   --radius: 0.75rem;
-  --shadow-soft: 0 1px 2px rgb(11 18 32 / 0.04), 0 8px 24px -8px rgb(11 18 32 / 0.1);
-  --shadow-lift: 0 2px 4px rgb(11 18 32 / 0.05), 0 16px 40px -12px rgb(11 18 32 / 0.18);
+  --radius-panel: 1.75rem; /* cards, accordions, placeholders */
+  --radius-media: 2rem; /* photography frames */
+  --radius-banner: 2.5rem; /* full-width banners, hero panels */
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px -12px rgb(0 0 0 / 0.55);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 24px 60px -18px rgb(0 0 0 / 0.75);
+  --shadow-glow: 0 18px 50px -16px color-mix(in srgb, var(--orange) 55%, transparent);
+
+  /* Motion. */
+  --duration-fast: 200ms;
+  --duration-base: 300ms;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Layout. */
+  --container-site: 80rem; /* matches max-w-7xl */
+  --container-prose: 48rem; /* matches max-w-3xl */
+  --container-gutter: 1.25rem;
+  --container-gutter-sm: 2rem;
+  --section-space: 6rem;
+  --section-space-sm: 8rem;
+  --header-height: 5rem;
 }
 
 @theme inline {
-  --color-navy-950: var(--navy-950);
-  --color-navy-900: var(--navy-900);
-  --color-navy-800: var(--navy-800);
-  --color-brand-500: var(--brand-500);
-  --color-brand-600: var(--brand-600);
+  --color-ink: var(--ink);
+  --color-ink-warm: var(--ink-warm);
+  --color-brown: var(--brown);
+  --color-orange: var(--orange);
+  --color-orange-soft: var(--orange-soft);
+  --color-cream: var(--cream);
+  --color-gray: var(--gray);
+
+  /* Tailwind's white/black resolve to the brand's warm white and ink. */
+  --color-white: var(--cream);
+  --color-black: var(--ink);
+
+  /* Legacy alias kept for the reserved /portal placeholder (Module 2). */
+  --color-brand-600: var(--orange);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -58,6 +97,24 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
   --color-destructive: var(--destructive);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-card-border-hover: var(--card-border-hover);
+  --color-input: var(--input);
+  --color-input-border: var(--input-border);
+
+  /* Responsive breakpoints (Tailwind defaults, declared here so they are documented in one place). */
+  --breakpoint-sm: 40rem; /* 640px */
+  --breakpoint-md: 48rem; /* 768px */
+  --breakpoint-lg: 64rem; /* 1024px: desktop navigation appears */
+  --breakpoint-xl: 80rem; /* 1280px */
+  --breakpoint-2xl: 96rem; /* 1536px */
+
+  --radius-panel: var(--radius-panel);
+  --radius-media: var(--radius-media);
+  --radius-banner: var(--radius-banner);
+
+  --ease-out-soft: var(--ease-out-soft);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -67,9 +124,10 @@
 
   --shadow-soft: var(--shadow-soft);
   --shadow-lift: var(--shadow-lift);
+  --shadow-glow: var(--shadow-glow);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-manrope), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -80,6 +138,7 @@
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    color-scheme: dark;
   }
 
   body {
@@ -95,9 +154,20 @@
   h3,
   h4 {
     color: var(--foreground);
+    font-family: var(--font-display);
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
     line-height: 1.1;
+  }
+
+  /* In-page anchors land below the fixed navbar. */
+  [id] {
+    scroll-margin-top: 6rem;
+  }
+
+  ::selection {
+    background-color: var(--orange);
+    color: var(--ink);
   }
 
   :focus-visible {
@@ -112,11 +182,120 @@
   }
 }
 
+/*
+ * Shared component recipes. Each one replaces a class string that was repeated
+ * across sections. They are plain utilities, so they still compose with
+ * Tailwind variants (e.g. `lg:section-y`) and can be overridden per use.
+ */
+
+/* Vertical rhythm for a full page section. */
+@utility section-y {
+  padding-block: var(--section-space);
+  @media (width >= 40rem) {
+    padding-block: var(--section-space-sm);
+  }
+}
+
+/* Bottom-only rhythm, for a section that follows another padded section. */
+@utility section-b {
+  padding-bottom: var(--section-space);
+  @media (width >= 40rem) {
+    padding-bottom: var(--section-space-sm);
+  }
+}
+
+/* Small uppercase label used on cards and chips ("Dispatcher on your side"). */
+@utility label-caps {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Section and page heading scale (h2 by default). */
+@utility heading-section {
+  font-size: 1.875rem;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  @media (width >= 40rem) {
+    font-size: 2.25rem;
+    line-height: 1.111;
+  }
+  @media (width >= 64rem) {
+    font-size: 3rem;
+    line-height: 1;
+  }
+}
+
+/* Translucent dark card with a hairline border. Pair with `card-interactive` for links. */
+@utility card-surface {
+  border: 1px solid var(--card-border);
+  background-color: var(--card);
+}
+
+/* Lift + orange border on hover for cards that are links. */
+@utility card-interactive {
+  transition-property: transform, border-color, background-color, box-shadow;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out-soft);
+  &:hover {
+    transform: translateY(-0.25rem);
+    border-color: var(--card-border-hover);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
 @layer utilities {
-  /* Subtle brand gradient used on dark hero bands. */
+  /* Warm ambient glow used on dark hero and page-header bands. */
   .bg-hero-gradient {
     background-image:
-      radial-gradient(60rem 30rem at 85% -10%, rgb(37 99 235 / 0.28), transparent 60%),
-      linear-gradient(180deg, var(--navy-900), var(--navy-950));
+      radial-gradient(50rem 28rem at 80% -10%, rgb(232 100 22 / 0.2), transparent 60%),
+      radial-gradient(40rem 30rem at 0% 110%, rgb(46 27 18 / 0.9), transparent 70%),
+      linear-gradient(180deg, var(--ink-warm), var(--ink));
+  }
+
+  /* Brown-to-ink card fill with a soft orange bloom (reference "glass" cards). */
+  .bg-ember {
+    background-image:
+      radial-gradient(28rem 18rem at 85% 0%, rgb(232 100 22 / 0.22), transparent 65%),
+      linear-gradient(160deg, var(--brown), var(--ink-warm) 60%, var(--ink));
+  }
+
+  /* Faint route grid for orange panels. */
+  .bg-route-grid {
+    background-image:
+      linear-gradient(rgb(20 20 20 / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(20 20 20 / 0.07) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+}
+
+@layer utilities {
+  /* Hero ambient lighting: brown bloom behind the headline, faint orange warmth. */
+  .bg-hero-ambient {
+    background-image:
+      radial-gradient(42rem 32rem at 18% 45%, rgb(46 27 18 / 0.95), transparent 70%),
+      radial-gradient(30rem 22rem at 40% 70%, rgb(232 100 22 / 0.12), transparent 70%);
+  }
+
+  /* Shade laid over photography so cards and text stay legible. */
+  .bg-image-shade {
+    background-image:
+      linear-gradient(140deg, rgb(46 27 18 / 0.85), transparent 45%),
+      linear-gradient(to top, rgb(20 20 20 / 0.7), transparent 40%);
+  }
+
+  /* Left-to-right shade for wide banner photography (final CTA). */
+  .bg-banner-shade {
+    background-image:
+      linear-gradient(90deg, var(--ink) 18%, rgb(20 20 20 / 0.82) 45%, rgb(20 20 20 / 0.2)),
+      radial-gradient(30rem 20rem at 0% 100%, rgb(232 100 22 / 0.25), transparent 70%);
   }
 }

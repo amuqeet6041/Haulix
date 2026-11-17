@@ -1,25 +1,8 @@
-import Link from "next/link";
-import * as React from "react";
+import { ActionButton, type ActionButtonProps } from "@/components/shared/action-button";
 
-import { Button, type ButtonProps } from "@/components/ui/button";
-
-export interface ActionButtonProps extends Omit<ButtonProps, "asChild" | "variant"> {
-  /** When set, renders a Next.js Link styled as a button. */
-  href?: string;
-}
+export type { ActionButtonProps };
 
 /** Main call-to-action button. Pass `href` to render a link. */
-export function PrimaryButton({ href, children, ...props }: ActionButtonProps) {
-  if (href) {
-    return (
-      <Button asChild variant="primary" {...props}>
-        <Link href={href}>{children}</Link>
-      </Button>
-    );
-  }
-  return (
-    <Button variant="primary" {...props}>
-      {children}
-    </Button>
-  );
+export function PrimaryButton(props: ActionButtonProps) {
+  return <ActionButton variant="primary" {...props} />;
 }

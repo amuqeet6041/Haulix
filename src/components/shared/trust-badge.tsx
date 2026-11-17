@@ -17,13 +17,11 @@ export function TrustBadge({ label, onDark = false, className }: TrustBadgeProps
     <span
       className={cn(
         "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium",
-        onDark
-          ? "border-white/15 bg-white/5 text-white"
-          : "border-border bg-surface text-foreground",
+        onDark ? "border-white/15 bg-white/5 text-white" : "card-surface text-foreground",
         className,
       )}
     >
-      <Check className="size-4 text-brand-500" aria-hidden="true" />
+      <Check className="size-4 text-orange-soft" aria-hidden="true" />
       {label}
     </span>
   );

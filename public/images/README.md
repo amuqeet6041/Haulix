@@ -1,14 +1,12 @@
 # public/images
 
-Reserved for site photography and graphics. Nothing is committed yet: add real, properly
-licensed truck photography only.
+Site photography. Use only supplied or properly licensed images.
 
-| Folder          | Intended use                                |
-| --------------- | ------------------------------------------- |
-| `hero/`         | Homepage and page-header hero imagery       |
-| `services/`     | Service section illustrations / photos      |
-| `equipment/`    | One image per equipment type                |
-| `testimonials/` | Customer headshots (only with permission)   |
-| `general/`      | Everything else (about page, blog covers)   |
+| File                                   | Use                                       |
+| -------------------------------------- | ----------------------------------------- |
+| `hero/truck-night-trails.jpg`          | Landing hero image and final CTA banner   |
+| `general/truck-sunset-highway.jpg`     | Landing "About" section                   |
 
-Reference images with `next/image` using paths like `/images/hero/home.jpg`.
+Reference images with `next/image` using paths like `/images/hero/truck-night-trails.jpg`.
+Planned folders: `services/`, `equipment/` (one image per equipment type), `testimonials/`
+(headshots only with permission).

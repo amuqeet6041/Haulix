@@ -55,7 +55,7 @@ export default async function EquipmentPage({ params }: EquipmentPageProps) {
           <ul className="mt-5 space-y-3">
             {service.highlights.map((highlight) => (
               <li key={highlight} className="flex items-start gap-3">
-                <Check className="mt-1 size-5 shrink-0 text-brand-600" aria-hidden="true" />
+                <Check className="mt-1 size-5 shrink-0 text-orange" aria-hidden="true" />
                 <span>{highlight}</span>
               </li>
             ))}

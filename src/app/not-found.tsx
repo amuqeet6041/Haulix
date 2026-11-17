@@ -18,7 +18,7 @@ export default function NotFound() {
       <Navbar />
       <main id="main-content" className="py-28">
         <Container narrow>
-          <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">404</p>
+          <p className="text-sm font-semibold tracking-widest text-orange uppercase">404</p>
           <h1 className="mt-3 text-4xl sm:text-5xl">Page not found</h1>
           <p className="mt-4">The page you are looking for does not exist or has moved.</p>
           <div className="mt-8 flex flex-wrap gap-3">

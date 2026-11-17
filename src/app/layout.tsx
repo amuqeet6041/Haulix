@@ -1,6 +1,5 @@
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
+import { Inter, Manrope } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { JsonLd } from "@/components/shared/json-ld";
@@ -9,12 +8,17 @@ import { organizationJsonLd } from "@/lib/seo";
 
 import "./globals.css";
 
+/** Body copy. Self-hosted at build time by next/font (no runtime requests to Google). */
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+/** Headings (`font-display`). */
+const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
+
 export const metadata: Metadata = defaultMetadata;
 export const viewport: Viewport = defaultViewport;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${manrope.variable}`}>
       <body>
         <a
           href="#main-content"

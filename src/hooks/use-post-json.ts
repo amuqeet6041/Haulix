@@ -2,7 +2,11 @@
 
 import { useCallback, useState } from "react";
 
-import { SUBMISSION_ID_HEADER } from "@/lib/submission";
+import {
+  FORM_ELAPSED_HEADER,
+  SUBMISSION_ID_HEADER,
+  TURNSTILE_TOKEN_HEADER,
+} from "@/lib/submission";
 import type { ApiResponse, FieldErrors } from "@/types/api";
 
 type Status = "idle" | "submitting" | "success" | "error";
@@ -16,6 +20,10 @@ interface PostJsonState {
 export interface SubmitOptions {
   /** Idempotency key for this submission attempt, sent as a header (see lib/submission.ts). */
   submissionId?: string;
+  /** How long the form was open, for the server's minimum fill time check. */
+  elapsedMs?: number;
+  /** Cloudflare Turnstile token, only when Turnstile is enabled. */
+  turnstileToken?: string;
 }
 
 /** What `submit` resolves to, so the form can react (reset, map field errors). */
@@ -65,6 +73,10 @@ export function usePostJson(endpoint: string) {
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (options.submissionId) headers[SUBMISSION_ID_HEADER] = options.submissionId;
+      if (options.elapsedMs !== undefined) {
+        headers[FORM_ELAPSED_HEADER] = String(Math.max(0, Math.round(options.elapsedMs)));
+      }
+      if (options.turnstileToken) headers[TURNSTILE_TOKEN_HEADER] = options.turnstileToken;
 
       let response: Response;
       try {

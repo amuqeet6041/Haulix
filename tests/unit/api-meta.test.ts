@@ -15,7 +15,12 @@ const uuid = "3f1c2b8e-5d4a-4c1e-9a7b-2e6f8d9c0a1b";
 function post(url: string, body: unknown, headers: Record<string, string> = {}): Request {
   return new Request(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: new URL(url).origin,
+      "X-Form-Elapsed-Ms": "8000",
+      ...headers,
+    },
     body: JSON.stringify(body),
   });
 }
@@ -37,13 +42,25 @@ describe("API routes pass server-derived metadata to the lead service", () => {
           sourcePage: "/forged",
           submissionId: "forged",
         },
-        { referer: "http://localhost:3000/contact", "Idempotency-Key": uuid },
+        {
+          referer: "http://localhost:3000/contact",
+          "Idempotency-Key": uuid,
+          "x-forwarded-for": "203.0.113.7, 10.0.0.1",
+          "user-agent": "Mozilla/5.0 Test",
+        },
       ),
     );
 
     expect(response.status).toBe(200);
     const [data, meta] = vi.mocked(submitContactMessage).mock.calls[0]!;
-    expect(meta).toEqual({ sourcePage: "/contact", submissionId: uuid });
+    expect(meta).toMatchObject({
+      sourcePage: "/contact",
+      submissionId: uuid,
+      userAgent: "Mozilla/5.0 Test",
+    });
+    // Only a 64-char keyed hash of the first forwarded IP is passed on, never the IP.
+    expect(meta?.ipHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(meta)).not.toContain("203.0.113.7");
     expect(data).not.toHaveProperty("sourcePage");
     expect(data).not.toHaveProperty("submissionId");
   });
@@ -65,7 +82,11 @@ describe("API routes pass server-derived metadata to the lead service", () => {
 
     expect(response.status).toBe(200);
     const [data, meta] = vi.mocked(submitCarrierInquiry).mock.calls[0]!;
-    expect(meta).toEqual({ sourcePage: undefined, submissionId: undefined });
+    expect(meta).toMatchObject({
+      sourcePage: undefined,
+      submissionId: undefined,
+      ipHash: undefined,
+    });
     expect(data).toMatchObject({ equipment: "flatbed", fleetSize: 3 });
   });
 

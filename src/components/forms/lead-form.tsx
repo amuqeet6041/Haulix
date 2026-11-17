@@ -1,14 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { FormStatus } from "@/components/forms/form-status";
+import { TurnstileWidget } from "@/components/forms/turnstile-widget";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { equipmentServices } from "@/content/services";
+import { useFormTimer } from "@/hooks/use-form-timer";
 import { usePostJson } from "@/hooks/use-post-json";
 import { useSubmissionId } from "@/hooks/use-submission-id";
 import { pickFieldErrors } from "@/lib/form-errors";
@@ -48,6 +50,9 @@ export function LeadForm() {
   });
   const { status, message, submit } = usePostJson("/api/leads");
   const submissionId = useSubmissionId();
+  const timer = useFormTimer();
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   // Preselect equipment from /get-started?equipment=<slug>. Read after mount so the page stays
   // statically rendered; unknown slugs are ignored and the select keeps its placeholder.
@@ -57,9 +62,16 @@ export function LeadForm() {
   }, [setValue]);
 
   async function onSubmit(data: CarrierInquiryData) {
-    const result = await submit(data, { submissionId: submissionId.get() });
+    const result = await submit(data, {
+      submissionId: submissionId.get(),
+      elapsedMs: timer.elapsed(),
+      turnstileToken,
+    });
+    // Turnstile tokens are single use; ask for a fresh one after every attempt.
+    setTurnstileReset((count) => count + 1);
     if (result.ok) {
       submissionId.renew();
+      timer.restart();
       reset();
       return;
     }
@@ -201,6 +213,7 @@ export function LeadForm() {
         <input id="website" type="text" tabIndex={-1} autoComplete="off" {...register("website")} />
       </div>
 
+      <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileReset} />
       <FormStatus status={status} message={message} />
       <Button type="submit" size="lg" disabled={submitting} className="w-full sm:w-auto">
         {submitting ? "Sending…" : "Submit inquiry"}

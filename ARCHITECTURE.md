@@ -96,13 +96,18 @@ Browser form (React Hook Form + zodResolver(carrierInquirySchema))
 usePostJson → POST /api/leads
    │
    ▼
-route.ts: parseBody(request, carrierInquirySchema)  ← same schema, server-side re-validation
-   │  422 with fieldErrors if invalid
-   │  honeypot filled? → silent 200, no work
+route.ts
+   checkOrigin                     → 403 unless Origin (or Sec-Fetch-Site / Referer) is this site
+   parseBody(request, schema)      → 413 over 16 KB · 400 bad JSON · 422 with fieldErrors
+   honeypot filled?                → silent 200, no work
+   checkFillTime (X-Form-Elapsed-Ms ≥ 1.5 s) → 400 "take a moment, then send again"
+   checkTurnstile (only if enabled) → 403
    ▼
-lead.service.submitCarrierInquiry(data)   (contact form: /api/contact → submitContactMessage)
+lead.service.submitCarrierInquiry(data, meta)   (contact form: /api/contact → submitContactMessage)
    1. no DATABASE_URL            → not_configured (503), nothing sent
-   2. storeLead → Prisma Lead    → write failed: failed (500), no email sent
+   2. same content, same email, same type within 10 min → ok (200), nothing stored or sent
+   3. rate limit (rate-limit.service) → rate_limited (429 + Retry-After)
+   4. storeLead → Prisma Lead    → write failed: failed (500), no email sent
                                  → duplicate submissionId: ok (200), nothing scheduled
    3. after(() => deliverLeadEmails(lead))   runs once the response has been sent
         business notification → CONTACT_EMAIL  → on success set notifiedAt
@@ -157,8 +162,20 @@ usePostJson → FormStatus message; 422 fieldErrors mapped onto fields (first on
   for validated data).
 - **Shared primitives** (name, email, US phone, optional text, MC/DOT numbers, honeypot) live in
   `src/lib/validations/primitives.ts`.
-- **Spam protection:** a hidden honeypot field. Rate limiting is **not** implemented yet (see
-  section 9).
+- **Abuse protection** (`src/lib/request-guard.ts`, `src/services/rate-limit.service.ts`):
+  - Same-origin check on all three POST routes. Allowed: the request's own origin and
+    `NEXT_PUBLIC_SITE_URL`. Requests with no origin information (scripts, curl) are refused.
+  - Body limit: 16 KB (2 KB for the newsletter), enforced on the bytes actually streamed.
+  - Hidden honeypot field (silent 200).
+  - Minimum fill time: forms send `X-Form-Elapsed-Ms` (`useFormTimer`); under 1.5 s or missing
+    gets a 400 asking to resend, never a silent drop, so a fast human loses nothing.
+  - Rate limits in PostgreSQL with no extra table, counting `Lead` rows: per keyed IP hash
+    (`IP_HASH_SECRET`) 5 per 10 min and 20 per 24 h, per email 3 per hour. Newsletter: global cap
+    of 30 new sign-ups per 10 min (no IP column). Checks fail open on database errors.
+  - Duplicates: unique `submissionId` (Idempotency-Key) plus identical content from the same
+    email within 10 minutes. Duplicate checks run before the rate limit.
+  - Cloudflare Turnstile behind `NEXT_PUBLIC_TURNSTILE_ENABLED` + site key + secret, off by
+    default (`lib/turnstile.ts`, `components/forms/turnstile-widget.tsx`, renders nothing when off).
 
 ## 7. Backend integration strategy
 
@@ -207,7 +224,8 @@ Prepared now, without building any portal features:
 
 ## 9. Known gaps (intentional, for later steps)
 
-- No rate limiting or CAPTCHA on API routes (honeypot only).
+- Turnstile is built but off. Rate limits trust `x-forwarded-for`, which only Vercel-style
+  proxies set reliably; elsewhere the email limit still applies.
 - No Open Graph image yet (add `opengraph-image` or a file in `public/images`).
 - Analytics (`NEXT_PUBLIC_GA_MEASUREMENT_ID`) and Sentry (`SENTRY_DSN`) are reserved env vars only.
 - No database migrations are committed; run `prisma migrate dev` when a database exists.

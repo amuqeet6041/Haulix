@@ -12,4 +12,7 @@ export type ApiResponse =
     };
 
 /** Outcome returned by the application services to the API routes. */
-export type ServiceResult = { ok: true } | { ok: false; reason: "not_configured" | "failed" };
+export type ServiceResult =
+  | { ok: true }
+  | { ok: false; reason: "not_configured" | "failed" }
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds: number };

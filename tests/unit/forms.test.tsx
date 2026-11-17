@@ -181,6 +181,27 @@ describe("ContactForm", () => {
     expect(screen.getByLabelText(/Full name/)).toHaveValue("");
   });
 
+  it("shows a rate limit (429) message as an alert and keeps the input", async () => {
+    mockFetch(
+      jsonResponse(
+        {
+          ok: false,
+          message:
+            "We received several requests from you in a short time. Please wait a few minutes and try again.",
+        },
+        429,
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ContactForm />);
+    await fillContactForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("wait a few minutes");
+    expect(screen.getByLabelText(/Full name/)).toHaveValue("Jane Driver");
+  });
+
   it("shows the 503 message as an alert", async () => {
     mockFetch(
       jsonResponse(
@@ -376,6 +397,10 @@ describe("LeadForm", () => {
     });
     for (const key of Object.keys(body)) expect(carrierInquirySchema.shape).toHaveProperty(key);
     expect(headers["Idempotency-Key"]).toMatch(/^[0-9a-f-]{36}$/);
+    // Fill time is measured from mount and sent for the server's minimum fill time check.
+    expect(Number(headers["X-Form-Elapsed-Ms"])).toBeGreaterThan(0);
+    // Turnstile is disabled by default: no widget, no token header.
+    expect(headers).not.toHaveProperty("X-Turnstile-Token");
   });
 
   it("requires equipment and fleet size", async () => {

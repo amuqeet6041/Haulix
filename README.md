@@ -162,5 +162,6 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for how the layers fit together.
 - Fill `siteConfig.contact` and `siteConfig.social` in `src/config/site.ts`.
 - Add real photography to `public/images/` and the final logo to `public/logos/`.
 - Set `NEXT_PUBLIC_SITE_URL`, database and email variables.
-- Add rate limiting to the API routes (see ARCHITECTURE.md).
+- Set `IP_HASH_SECRET` (rate limiting) and, if spam appears, enable Cloudflare Turnstile (see
+  `.env.example` and ARCHITECTURE.md "Abuse protection").
 - Add an Open Graph image.

@@ -9,10 +9,15 @@ import { POST as postLead } from "@/app/api/leads/route";
  * email configured nothing external is touched (the Prisma client is lazy).
  */
 
+/** A request as the site's own form sends it: same Origin and a realistic fill time. */
 function jsonRequest(url: string, body: unknown): Request {
   return new Request(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: new URL(url).origin,
+      "X-Form-Elapsed-Ms": "8000",
+    },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }

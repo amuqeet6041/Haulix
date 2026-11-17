@@ -9,6 +9,7 @@ import type { ServiceResult } from "@/types/api";
 import type { CarrierInquiryData, ContactData } from "@/validations";
 
 import { deliverLeadEmails } from "./email.service";
+import { checkLeadRateLimit } from "./rate-limit.service";
 
 /**
  * Every inbound inquiry is a row in the unified `Lead` table.
@@ -24,6 +25,8 @@ function metaFields(meta: SubmissionMeta) {
     sourcePage: meta.sourcePage ?? null,
     // Omitted when absent so the database generates one.
     ...(meta.submissionId ? { submissionId: meta.submissionId } : {}),
+    ...(meta.ipHash ? { ipHash: meta.ipHash } : {}),
+    ...(meta.userAgent ? { userAgent: meta.userAgent } : {}),
   };
 }
 
@@ -105,11 +108,48 @@ async function storeLead(record: Prisma.LeadCreateInput): Promise<StoreResult> {
   }
 }
 
+/** A resubmission with identical content inside this window counts as the same lead. */
+export const CONTENT_DUPLICATE_WINDOW_MS = 10 * 60_000;
+
+/**
+ * Second layer of duplicate protection, for retries without the idempotency
+ * key (a reload, a second tab): the same email, type and visitor-entered
+ * content stored within the window. Fails open on a database error.
+ */
+async function findContentDuplicate(
+  record: Prisma.LeadCreateInput,
+  now: Date,
+): Promise<string | null> {
+  try {
+    const existing = await getPrisma().lead.findFirst({
+      where: {
+        type: record.type,
+        email: record.email,
+        phone: record.phone ?? null,
+        companyName: record.companyName ?? null,
+        equipment: record.equipment ?? null,
+        fleetSize: record.fleetSize ?? null,
+        inquiryType: record.inquiryType ?? null,
+        subject: record.subject ?? null,
+        message: record.message ?? null,
+        createdAt: { gte: new Date(now.getTime() - CONTENT_DUPLICATE_WINDOW_MS) },
+      },
+      select: { id: true },
+    });
+    return existing?.id ?? null;
+  } catch (error) {
+    logServerError("lead", "Duplicate check failed; continuing", error);
+    return null;
+  }
+}
+
 /** Runs work after the response is sent. Defaults to Next.js `after()`; tests inject their own. */
 export type Scheduler = (task: () => Promise<void>) => void;
 
 export interface SubmitOptions {
   schedule?: Scheduler;
+  /** Injectable clock for tests. */
+  now?: Date;
 }
 
 type LeadInput =
@@ -121,13 +161,30 @@ type LeadInput =
  * scheduled with `after()`, so the visitor gets the normal response without
  * waiting for Resend, and an email failure can never undo the stored lead.
  * A duplicate (retried) submission succeeds without storing or emailing again.
+ *
+ * Order: duplicate check first (so a retry is never rate limited), then the
+ * rate limit, then the insert, which still enforces the unique submissionId.
  */
 async function submit(
   input: LeadInput,
   record: Prisma.LeadCreateInput,
-  { schedule = after }: SubmitOptions,
+  { schedule = after, now = new Date() }: SubmitOptions,
 ): Promise<ServiceResult> {
   if (!isDatabaseConfigured()) return { ok: false, reason: "not_configured" };
+
+  const duplicateOf = await findContentDuplicate(record, now);
+  if (duplicateOf) {
+    logServerWarning("lead", `Duplicate content ignored; already stored as ${duplicateOf}.`);
+    return { ok: true };
+  }
+
+  const limit = await checkLeadRateLimit(
+    { ipHash: record.ipHash ?? undefined, email: record.email },
+    now,
+  );
+  if (limit.limited) {
+    return { ok: false, reason: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds };
+  }
 
   const stored = await storeLead(record);
   if (stored.status === "failed") return { ok: false, reason: "failed" };

@@ -20,10 +20,18 @@ import { leadLimits } from "@/lib/validations/primitives";
  */
 
 export const SUBMISSION_ID_HEADER = "Idempotency-Key";
+/** Milliseconds between the form appearing and being submitted (minimum fill time check). */
+export const FORM_ELAPSED_HEADER = "X-Form-Elapsed-Ms";
+/** Cloudflare Turnstile token, sent only when Turnstile is enabled. */
+export const TURNSTILE_TOKEN_HEADER = "X-Turnstile-Token";
 
 export interface SubmissionMeta {
   sourcePage?: string;
   submissionId?: string;
+  /** Keyed hash of the client IP (see lib/request-guard.ts); never the raw IP. */
+  ipHash?: string;
+  /** Truncated User-Agent string. */
+  userAgent?: string;
 }
 
 const uuidSchema = z.uuid();

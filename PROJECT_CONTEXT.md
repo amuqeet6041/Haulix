@@ -126,6 +126,26 @@ Supersedes §11 (database), §12 (validation rules) and the folder notes for `co
   truck count field is registered as `fleetSize` (id `fleetSize`, label unchanged).
 - Tests: 118 passing (validation per type, enum sync with Prisma, server-managed field stripping).
 
+## 0i. Update — Phase 4.7 abuse protection (2026-11-18, uncommitted)
+
+Resolves K8. Details: `ARCHITECTURE.md` §6 "Abuse protection".
+
+- **Guards** on `/api/leads`, `/api/contact`, `/api/newsletter`: same-origin (403), streamed body
+  limit 16 KB / 2 KB (413), honeypot, minimum fill time 1.5 s via `X-Form-Elapsed-Ms` (400, leads
+  and contact only), Turnstile when enabled (403).
+- **Rate limits in Postgres, no schema change:** counts `Lead` rows by `ipHash` (HMAC with
+  `IP_HASH_SECRET`; 5 per 10 min, 20 per 24 h) and by `email` (3 per hour); 429 + Retry-After.
+  Newsletter: global cap 30 new sign-ups per 10 min and idempotent for existing emails. Checks
+  fail open. `ipHash` and `userAgent` are now stored on leads.
+- **Duplicates:** content duplicate (same type, email and entered content within 10 min) returns
+  200 without storing or emailing, before the rate limit; unique `submissionId` still enforced.
+- **Turnstile:** `NEXT_PUBLIC_TURNSTILE_ENABLED`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`,
+  `TURNSTILE_SECRET_KEY`; off by default; widget renders nothing when off.
+- New env: `IP_HASH_SECRET` (not set yet; a built-in key is used with a warning).
+- Verified live against Neon (fake data, deleted; emails disabled for the run): 403, 413, 400,
+  6th submission from one IP 429 (Retry-After ~10 min), 4th from one email 429, duplicate content
+  stored once. Tests: 219 passing.
+
 ## 0h. Update — Phase 4.6 Resend email integration (2026-11-18, uncommitted)
 
 Supersedes the email notes in §4, §12, §13 and §18 where they conflict. Details: `ARCHITECTURE.md`
@@ -681,7 +701,7 @@ of these.
 | K5  | **Fixed in Phase 4.2 (§0d).** `usePostJson` treated any non-JSON response (e.g. platform 500/413 HTML page) as "could not reach the server".                                                                                                                                                              | `hooks/use-post-json.ts`                         | Misleading message in edge cases.                                                            |
 | K6  | Root `error.tsx`/`loading.tsx` render without site chrome; `error.tsx` `<main>` lacks `id="main-content"` (skip link target missing); no `global-error.tsx`; errors not logged/reported.                                                                                                                  | `src/app`                                        | Resilience/UX.                                                                               |
 | K7  | Twitter card `summary_large_image` and OG tags with **no image**.                                                                                                                                                                                                                                         | `config/metadata.ts`, `lib/seo.ts`               | Poor link previews.                                                                          |
-| K8  | No rate limiting / CAPTCHA on public POST endpoints (honeypot only).                                                                                                                                                                                                                                      | `src/app/api/*`                                  | Spam/abuse risk once live. Documented as intentional gap.                                    |
+| K8  | **Fixed in Phase 4.7 (§0i).** No rate limiting / CAPTCHA on public POST endpoints (honeypot only).                                                                                                                                                                                                        | `src/app/api/*`                                  | Spam/abuse risk once live. Documented as intentional gap.                                    |
 
 ### Potential improvements / debt (not bugs)
 

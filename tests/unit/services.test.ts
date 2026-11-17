@@ -20,7 +20,11 @@ const mocks = vi.hoisted(() => ({
   leadCreate: vi.fn(),
   leadFindUnique: vi.fn(),
   leadUpdate: vi.fn(),
+  leadFindFirst: vi.fn(),
+  leadCount: vi.fn(),
   newsletterUpsert: vi.fn(),
+  newsletterFindUnique: vi.fn(),
+  newsletterCount: vi.fn(),
   resendSend: vi.fn(),
   after: vi.fn(),
 }));
@@ -28,8 +32,18 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({
   isDatabaseConfigured: () => Boolean(process.env.DATABASE_URL),
   getPrisma: () => ({
-    lead: { create: mocks.leadCreate, findUnique: mocks.leadFindUnique, update: mocks.leadUpdate },
-    newsletterSubscriber: { upsert: mocks.newsletterUpsert },
+    lead: {
+      create: mocks.leadCreate,
+      findUnique: mocks.leadFindUnique,
+      update: mocks.leadUpdate,
+      findFirst: mocks.leadFindFirst,
+      count: mocks.leadCount,
+    },
+    newsletterSubscriber: {
+      upsert: mocks.newsletterUpsert,
+      findUnique: mocks.newsletterFindUnique,
+      count: mocks.newsletterCount,
+    },
   }),
 }));
 
@@ -114,6 +128,10 @@ beforeEach(() => {
   mocks.leadCreate.mockResolvedValue({ id: "lead_1", createdAt });
   mocks.leadUpdate.mockResolvedValue({ id: "lead_1" });
   mocks.newsletterUpsert.mockResolvedValue({});
+  mocks.newsletterFindUnique.mockResolvedValue(null);
+  mocks.newsletterCount.mockResolvedValue(0);
+  mocks.leadFindFirst.mockResolvedValue(null);
+  mocks.leadCount.mockResolvedValue(0);
   mocks.resendSend.mockResolvedValue({ data: { id: "email_1" }, error: null });
 });
 
@@ -301,7 +319,90 @@ describe("duplicate submissions", () => {
   });
 });
 
+describe("abuse protection in the lead service", () => {
+  const ipHash = "b".repeat(64);
+
+  it("treats identical content from the same email within 10 minutes as a duplicate", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    mocks.leadFindFirst.mockResolvedValueOnce({ id: "lead_earlier" });
+    const scheduler = fakeScheduler();
+
+    await expect(submitContactMessage(contact, {}, scheduler)).resolves.toEqual({ ok: true });
+    expect(mocks.leadCreate).not.toHaveBeenCalled();
+    expect(scheduler.tasks).toHaveLength(0);
+
+    const where = (mocks.leadFindFirst.mock.calls[0]![0] as { where: Record<string, unknown> })
+      .where;
+    expect(where).toMatchObject({
+      type: "CONTACT",
+      email: contact.email,
+      message: contact.message,
+      inquiryType: "PRICING",
+    });
+  });
+
+  it("returns rate_limited without storing or emailing", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    mocks.leadCount.mockResolvedValue(100);
+    mocks.leadFindFirst
+      .mockResolvedValueOnce(null) // duplicate check
+      .mockResolvedValueOnce({ createdAt: new Date(Date.now() - 60_000) }); // oldest hit
+    const scheduler = fakeScheduler();
+
+    const result = await submitCarrierInquiry(inquiry, { ipHash }, scheduler);
+    expect(result).toMatchObject({ ok: false, reason: "rate_limited" });
+    expect(mocks.leadCreate).not.toHaveBeenCalled();
+    expect(scheduler.tasks).toHaveLength(0);
+  });
+
+  it("checks duplicates before the rate limit, so a retry is never limited", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    mocks.leadCount.mockResolvedValue(100);
+    mocks.leadFindFirst.mockResolvedValueOnce({ id: "lead_earlier" });
+
+    await expect(submitCarrierInquiry(inquiry, { ipHash }, fakeScheduler())).resolves.toEqual({
+      ok: true,
+    });
+    expect(mocks.leadCount).not.toHaveBeenCalled();
+  });
+
+  it("stores the IP hash and User-Agent with the lead", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    await submitCarrierInquiry(inquiry, { ipHash, userAgent: "Mozilla/5.0" }, fakeScheduler());
+    expect(storedRecord()).toMatchObject({ ipHash, userAgent: "Mozilla/5.0" });
+  });
+
+  it("still stores the lead when the duplicate or limit check errors (fails open)", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    mocks.leadFindFirst.mockRejectedValue(new Error("timeout"));
+    mocks.leadCount.mockRejectedValue(new Error("timeout"));
+
+    await expect(submitContactMessage(contact, {}, fakeScheduler())).resolves.toEqual({ ok: true });
+    expect(mocks.leadCreate).toHaveBeenCalledOnce();
+  });
+});
+
 describe("subscribeToNewsletter", () => {
+  it("is idempotent for an existing subscriber and skips the cap", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    mocks.newsletterFindUnique.mockResolvedValue({ id: "sub_1" });
+    mocks.newsletterCount.mockResolvedValue(1000);
+
+    await expect(subscribeToNewsletter({ email: inquiry.email })).resolves.toEqual({ ok: true });
+    expect(mocks.newsletterUpsert).not.toHaveBeenCalled();
+  });
+
+  it("is rate limited once the global sign-up cap is reached", async () => {
+    vi.stubEnv("DATABASE_URL", "postgresql://test");
+    mocks.newsletterCount.mockResolvedValue(1000);
+
+    await expect(subscribeToNewsletter({ email: inquiry.email })).resolves.toMatchObject({
+      ok: false,
+      reason: "rate_limited",
+    });
+    expect(mocks.newsletterUpsert).not.toHaveBeenCalled();
+  });
+
   it("logs a failure without the email address", async () => {
     vi.stubEnv("DATABASE_URL", "postgresql://test");
     mocks.newsletterUpsert.mockRejectedValue(new Error(`Failed for ${inquiry.email}`));

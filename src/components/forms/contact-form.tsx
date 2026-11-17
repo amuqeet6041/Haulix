@@ -1,14 +1,17 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { FormStatus } from "@/components/forms/form-status";
+import { TurnstileWidget } from "@/components/forms/turnstile-widget";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { defaultInquiryType, inquiryTypes } from "@/content/inquiry-types";
 import { equipmentServices } from "@/content/services";
+import { useFormTimer } from "@/hooks/use-form-timer";
 import { usePostJson } from "@/hooks/use-post-json";
 import { useSubmissionId } from "@/hooks/use-submission-id";
 import { pickFieldErrors } from "@/lib/form-errors";
@@ -41,11 +44,21 @@ export function ContactForm() {
   });
   const { status, message, submit } = usePostJson("/api/contact");
   const submissionId = useSubmissionId();
+  const timer = useFormTimer();
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   async function onSubmit(data: ContactData) {
-    const result = await submit(data, { submissionId: submissionId.get() });
+    const result = await submit(data, {
+      submissionId: submissionId.get(),
+      elapsedMs: timer.elapsed(),
+      turnstileToken,
+    });
+    // Turnstile tokens are single use; ask for a fresh one after every attempt.
+    setTurnstileReset((count) => count + 1);
     if (result.ok) {
       submissionId.renew();
+      timer.restart();
       reset();
       return;
     }
@@ -182,6 +195,7 @@ export function ContactForm() {
         />
       </div>
 
+      <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileReset} />
       <FormStatus status={status} message={message} />
       <Button type="submit" size="lg" disabled={submitting} className="w-full sm:w-auto">
         {submitting ? "Sending…" : "Send message"}

@@ -78,12 +78,13 @@ export interface LeadListResult {
 }
 
 export interface DashboardStats {
-  /** All leads except SPAM. */
+  /** Every lead in every status, including REJECTED and SPAM. */
   totalLeads: number;
-  newLeads: number;
-  leadsLast7Days: number;
+  /** Count for each status; statuses with no leads are 0, never missing. */
   byStatus: Record<LeadStatus, number>;
+  /** Count for each lead type; types with no leads are 0, never missing. */
   byType: Record<LeadType, number>;
+  /** Newest leads first, capped at RECENT_LEADS_LIMIT. */
   recentLeads: AdminLeadSummary[];
 }
 

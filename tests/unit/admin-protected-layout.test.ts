@@ -7,11 +7,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AdminShell } from "@/components/admin/admin-shell";
 
-const mocks = vi.hoisted(() => ({ requireAdminPage: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  requireAdminPage: vi.fn(),
+  listLeads: vi.fn(),
+  getDashboardStats: vi.fn(),
+}));
 
 vi.mock("@/lib/admin-page", () => ({
   requireAdminPage: mocks.requireAdminPage,
   ADMIN_HOME_PATH: "/admin",
+}));
+
+vi.mock("@/services/admin-lead.service", () => ({
+  listLeads: mocks.listLeads,
+  getDashboardStats: mocks.getDashboardStats,
 }));
 
 const { default: ProtectedAdminLayout } = await import("@/app/admin/(protected)/layout");
@@ -29,7 +38,23 @@ const context = {
 const root = path.resolve(__dirname, "../../src/app/admin");
 const source = (file: string) => readFileSync(path.join(root, file), "utf8");
 
-afterEach(() => mocks.requireAdminPage.mockReset());
+const emptyList = {
+  ok: true,
+  data: { leads: [], page: 1, pageSize: 25, total: 0, totalPages: 1 },
+};
+
+afterEach(() => {
+  mocks.requireAdminPage.mockReset();
+  mocks.listLeads.mockReset();
+  mocks.getDashboardStats.mockReset();
+});
+
+/** Each protected page as a zero-argument call, with the props Next would pass. */
+const pages = [
+  ["dashboard", () => AdminDashboardPage()],
+  ["leads", () => AdminLeadsPage({ searchParams: Promise.resolve({}) })],
+  ["account", () => AdminAccountPage()],
+] as const;
 
 describe("protected admin layout", () => {
   it("refuses to render when the visitor is not an authorized admin", async () => {
@@ -54,23 +79,20 @@ describe("protected admin layout", () => {
 });
 
 describe("every protected page still checks access itself", () => {
-  it.each([
-    ["dashboard", AdminDashboardPage],
-    ["leads", AdminLeadsPage],
-    ["account", AdminAccountPage],
-  ])("%s redirects instead of rendering when access is refused", async (_name, Page) => {
-    mocks.requireAdminPage.mockRejectedValue(new Error("REDIRECT:/admin/login"));
-    await expect(Page()).rejects.toThrow("REDIRECT:/admin/login");
-    expect(mocks.requireAdminPage).toHaveBeenCalledTimes(1);
-  });
+  it.each(pages)(
+    "%s redirects instead of rendering when access is refused",
+    async (_name, render) => {
+      mocks.requireAdminPage.mockRejectedValue(new Error("REDIRECT:/admin/login"));
+      await expect(render()).rejects.toThrow("REDIRECT:/admin/login");
+      expect(mocks.requireAdminPage).toHaveBeenCalledTimes(1);
+      expect(mocks.listLeads).not.toHaveBeenCalled();
+    },
+  );
 
-  it.each([
-    ["dashboard", AdminDashboardPage],
-    ["leads", AdminLeadsPage],
-    ["account", AdminAccountPage],
-  ])("%s renders for an authorized admin", async (_name, Page) => {
+  it.each(pages)("%s renders for an authorized admin", async (_name, render) => {
     mocks.requireAdminPage.mockResolvedValue(context);
-    await expect(Page()).resolves.toBeTruthy();
+    mocks.listLeads.mockResolvedValue(emptyList);
+    await expect(render()).resolves.toBeTruthy();
   });
 
   it("the account page shows the name and email but never ids", async () => {

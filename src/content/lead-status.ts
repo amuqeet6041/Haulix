@@ -62,9 +62,24 @@ export const leadStatusValues = leadStatuses.map((status) => status.value) as [
 ];
 
 export const leadTypeOptions = [
-  { value: "CARRIER_INQUIRY", label: "Carrier inquiry", shortLabel: "Carrier" },
-  { value: "CONTACT", label: "Contact message", shortLabel: "Contact" },
-] as const satisfies readonly { value: LeadType; label: string; shortLabel: string }[];
+  {
+    value: "CARRIER_INQUIRY",
+    label: "Carrier inquiry",
+    pluralLabel: "Carrier inquiries",
+    shortLabel: "Carrier",
+  },
+  {
+    value: "CONTACT",
+    label: "Contact message",
+    pluralLabel: "Contact messages",
+    shortLabel: "Contact",
+  },
+] as const satisfies readonly {
+  value: LeadType;
+  label: string;
+  pluralLabel: string;
+  shortLabel: string;
+}[];
 
 export type LeadTypeOptionValue = (typeof leadTypeOptions)[number]["value"];
 

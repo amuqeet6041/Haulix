@@ -1,4 +1,6 @@
+import { leadStatusValues, leadTypeValues } from "@/content/lead-status";
 import type { Prisma } from "@/generated/prisma/client";
+import type { LeadStatus, LeadType } from "@/generated/prisma/enums";
 import { assertAdmin, type AdminContext } from "@/lib/admin-guard";
 import { logServerError } from "@/lib/log";
 import { getPrisma, isDatabaseConfigured } from "@/lib/prisma";
@@ -9,6 +11,7 @@ import type {
   AdminLeadNote,
   AdminLeadSummary,
   AdminServiceResult,
+  DashboardStats,
   LeadListResult,
 } from "@/types/admin";
 import type { LeadListQuery } from "@/validations/admin-leads";
@@ -259,6 +262,75 @@ export async function getLead(
     return { ok: true, data: toDetail(row, admin) };
   } catch (error) {
     logServerError("admin-leads", "Failed to load a lead", error);
+    return { ok: false, reason: "failed" };
+  }
+}
+
+/** How many of the newest leads the dashboard lists. */
+export const RECENT_LEADS_LIMIT = 8;
+
+export interface LeadCountRow {
+  status: LeadStatus;
+  type: LeadType;
+  _count: { _all: number };
+}
+
+/**
+ * Turns grouped counts into dashboard totals. Every known status and type is
+ * present (0 when there are no leads), and the total includes every status,
+ * REJECTED and SPAM too. Unknown values are ignored rather than trusted.
+ */
+export function summarizeLeadCounts(
+  rows: readonly LeadCountRow[],
+): Pick<DashboardStats, "totalLeads" | "byStatus" | "byType"> {
+  const byStatus = Object.fromEntries(leadStatusValues.map((value) => [value, 0])) as Record<
+    LeadStatus,
+    number
+  >;
+  const byType = Object.fromEntries(leadTypeValues.map((value) => [value, 0])) as Record<
+    LeadType,
+    number
+  >;
+  let totalLeads = 0;
+  for (const row of rows) {
+    const count = row._count._all;
+    if (!Number.isInteger(count) || count < 0) continue;
+    // Own keys only: `in` would also accept inherited names such as "__proto__".
+    if (!Object.hasOwn(byStatus, row.status) || !Object.hasOwn(byType, row.type)) continue;
+    byStatus[row.status] += count;
+    byType[row.type] += count;
+    totalLeads += count;
+  }
+  return { totalLeads, byStatus, byType };
+}
+
+/**
+ * Totals by status and type plus the newest leads. Needs the `lead:list`
+ * permission. Two queries in parallel: one grouped count (the database does
+ * the counting, no rows are loaded) and one capped list of summaries.
+ */
+export async function getDashboardStats(
+  admin: unknown,
+): Promise<AdminServiceResult<DashboardStats>> {
+  assertAdmin(admin, { lead: ["list"] });
+  if (!isDatabaseConfigured()) return { ok: false, reason: "not_configured" };
+
+  try {
+    const prisma = getPrisma();
+    const [counts, recent] = await Promise.all([
+      prisma.lead.groupBy({ by: ["status", "type"], _count: { _all: true } }),
+      prisma.lead.findMany({
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: RECENT_LEADS_LIMIT,
+        select: summarySelect,
+      }),
+    ]);
+    return {
+      ok: true,
+      data: { ...summarizeLeadCounts(counts), recentLeads: recent.map(toSummary) },
+    };
+  } catch (error) {
+    logServerError("admin-leads", "Failed to load dashboard stats", error);
     return { ok: false, reason: "failed" };
   }
 }

@@ -4,7 +4,7 @@ import { requireAdminPage } from "@/lib/admin-page";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-/** /admin. Dashboard shell; lead management arrives in the next step. */
+/** /admin. Dashboard placeholder; the lead overview arrives in a later step. */
 export default async function AdminDashboardPage() {
   const admin = await requireAdminPage();
 

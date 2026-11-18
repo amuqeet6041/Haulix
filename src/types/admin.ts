@@ -87,6 +87,15 @@ export interface DashboardStats {
   recentLeads: AdminLeadSummary[];
 }
 
+/**
+ * Outcome of an admin service call. Like `ServiceResult` for the public forms,
+ * but carrying data on success and a `not_found` reason. Authorization failures
+ * are not part of it: services throw `AdminAccessError` (see admin-guard.ts),
+ * which `withAdmin()` turns into a 401 or 403.
+ */
+export type AdminServiceResult<T> =
+  { ok: true; data: T } | { ok: false; reason: "not_configured" | "not_found" | "failed" };
+
 /** Envelope for successful admin API responses. */
 export type AdminApiSuccess<T> = { ok: true } & T;
 

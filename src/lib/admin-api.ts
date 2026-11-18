@@ -53,6 +53,13 @@ export function adminError(
   return withProtectedHeaders(NextResponse.json(body, { status: STATUS_FOR[code] }));
 }
 
+/** Failure half of an `AdminServiceResult` as an HTTP response (503, 404 or 500). */
+export function adminServiceError(reason: "not_configured" | "not_found" | "failed") {
+  if (reason === "not_configured") return adminError("unavailable");
+  if (reason === "not_found") return adminError("not_found");
+  return adminError("server_error");
+}
+
 export const adminNotFound = (message?: string) => adminError("not_found", { message });
 export const adminConflict = (message?: string) => adminError("conflict", { message });
 

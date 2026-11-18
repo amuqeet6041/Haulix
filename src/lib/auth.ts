@@ -30,6 +30,25 @@ import { getPrisma } from "@/lib/prisma";
 const APP_NAME = "HAULIX Logistics";
 const HOUR = 60 * 60;
 
+/**
+ * Origins allowed to call the auth endpoints (Better Auth's CSRF defense): the
+ * configured site and auth URLs. Outside production, a request's OWN origin is
+ * trusted too, so a local dev server on any port works while .env.local points at
+ * the live site. Another site's page still fails: its Origin header never equals
+ * the origin this server is reached on.
+ */
+export function trustedOriginsFor(baseURL: string, request?: Request): string[] {
+  const origins = new Set([baseURL, siteConfig.url]);
+  if (process.env.NODE_ENV !== "production" && request) {
+    try {
+      origins.add(new URL(request.url).origin);
+    } catch {
+      // Not an absolute URL: nothing extra to trust.
+    }
+  }
+  return [...origins];
+}
+
 type Database = Parameters<typeof betterAuth>[0]["database"];
 
 export interface AuthDeps {
@@ -56,7 +75,7 @@ export function createAuth({ database, findUserForSession }: AuthDeps = prismaDe
     baseURL,
     secret: process.env.BETTER_AUTH_SECRET,
     database,
-    trustedOrigins: Array.from(new Set([baseURL, siteConfig.url])),
+    trustedOrigins: (request) => trustedOriginsFor(baseURL, request),
 
     emailAndPassword: {
       enabled: true,
@@ -82,6 +101,12 @@ export function createAuth({ database, findUserForSession }: AuthDeps = prismaDe
 
     advanced: {
       cookiePrefix: AUTH_COOKIE_PREFIX,
+      // Secure cookies in production. Outside production they follow the page's own scheme, so
+      // signing in on http://localhost works even when BETTER_AUTH_URL is the https site.
+      useSecureCookies: process.env.NODE_ENV === "production",
+      // Always enforce the origin (CSRF) check. Better Auth skips it by default in test
+      // environments, so it is switched on explicitly and the tests exercise the real rule.
+      disableOriginCheck: false,
       ipAddress: { ipAddressHeaders: ["x-forwarded-for", "x-real-ip"] },
     },
 

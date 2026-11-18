@@ -6,6 +6,7 @@ import { AdminLoginForm } from "@/components/admin/admin-login-form";
 import {
   GENERIC_SIGN_IN_ERROR,
   LOGIN_NOTICES,
+  ORIGIN_ERROR,
   RATE_LIMITED_ERROR,
   UNAVAILABLE_ERROR,
 } from "@/content/admin-login";
@@ -166,6 +167,24 @@ describe("AdminLoginForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(GENERIC_SIGN_IN_ERROR);
     expect(calls.map((c) => c.path)).toContain("/api/auth/sign-out");
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("says the address is not allowed when the server rejects the origin", async () => {
+    mockServer({
+      "/api/auth/sign-in/email": {
+        status: 403,
+        body: { code: "INVALID_ORIGIN", message: "Invalid origin" },
+      },
+    });
+    const user = userEvent.setup();
+    render(<AdminLoginForm />);
+    await fill(user, "admin@haulixlogistics.com", "a-password");
+
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(ORIGIN_ERROR);
+    expect(alert).not.toHaveTextContent(/password|email or/i);
   });
 
   it("explains rate limiting and unavailability", async () => {

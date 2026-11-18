@@ -2,7 +2,7 @@
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createAuth } from "@/lib/auth";
+import { createAuth, trustedOriginsFor } from "@/lib/auth";
 
 /**
  * Runs the real Better Auth configuration (lib/auth.ts) against Better Auth's
@@ -65,6 +65,63 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
+});
+
+describe("trusted origins (CSRF defense)", () => {
+  const SITE = "https://www.haulix.test";
+  const LOCAL = "http://localhost:3999";
+
+  /** Sign-in as the browser sends it: the Origin header equals the page's origin. */
+  function signInFrom(pageOrigin: string, requestOrigin = pageOrigin) {
+    return new Request(`${requestOrigin}/api/auth/sign-in/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: pageOrigin },
+      body: JSON.stringify({ email: ADMIN_EMAIL, password: "Wrong-Password-1!" }),
+    });
+  }
+
+  beforeEach(() => {
+    // .env.local pointing at the live site, as on a developer machine.
+    vi.stubEnv("BETTER_AUTH_URL", SITE);
+  });
+
+  it("trusts the configured site and auth origins", async () => {
+    const { auth } = setup();
+    const response = await auth.handler(signInFrom(SITE));
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: "INVALID_EMAIL_OR_PASSWORD" });
+  });
+
+  it("trusts a local dev server's own origin outside production", async () => {
+    const { auth } = setup();
+    const response = await auth.handler(signInFrom(LOCAL));
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: "INVALID_EMAIL_OR_PASSWORD" });
+  });
+
+  it("rejects another site's page even outside production", async () => {
+    const { auth } = setup();
+    const response = await auth.handler(signInFrom("https://evil.test", LOCAL));
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "INVALID_ORIGIN" });
+  });
+
+  it("trusts only the configured origins in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { auth } = setup();
+    const local = await auth.handler(signInFrom(LOCAL));
+    expect(local.status).toBe(403);
+    await expect(local.json()).resolves.toMatchObject({ code: "INVALID_ORIGIN" });
+    expect((await auth.handler(signInFrom(SITE))).status).toBe(401);
+  });
+
+  it("trustedOriginsFor never adds the request origin in production", () => {
+    const request = new Request(`${LOCAL}/api/auth/get-session`);
+    expect(trustedOriginsFor(SITE, request)).toContain(LOCAL);
+    vi.stubEnv("NODE_ENV", "production");
+    expect(trustedOriginsFor(SITE, request)).not.toContain(LOCAL);
+    expect(trustedOriginsFor(SITE)).toContain(SITE);
+  });
 });
 
 async function createAdmin(auth: ReturnType<typeof setup>["auth"], email = ADMIN_EMAIL) {

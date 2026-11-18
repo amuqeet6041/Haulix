@@ -126,6 +126,21 @@ Supersedes §11 (database), §12 (validation rules) and the folder notes for `co
   truck count field is registered as `fleetSize` (id `fleetSize`, label unchanged).
 - Tests: 118 passing (validation per type, enum sync with Prisma, server-managed field stripping).
 
+## 0m. Update — admin sign-in origin fix (2026-11-18, uncommitted)
+
+- **Symptom:** correct admin credentials showed "The email or password is incorrect." **Cause:**
+  `.env.local` sets `NEXT_PUBLIC_SITE_URL` and `BETTER_AUTH_URL` to `https://www.haulixlogistics.com`,
+  so Better Auth trusted only that origin and answered sign-in from `http://localhost:3000` with
+  403 `INVALID_ORIGIN`; the form showed the generic message for every failure.
+- **Fix:** `trustedOriginsFor()` in `src/lib/auth.ts` trusts the configured URLs plus, outside
+  production only, the request's own origin (so local dev works on any port; another site's Origin
+  still fails). `useSecureCookies` is `NODE_ENV === "production"`. `disableOriginCheck: false` is
+  explicit because Better Auth skips the check by default under test runners. The login form now
+  shows a separate, account-neutral message for `INVALID_ORIGIN` (`ORIGIN_ERROR`).
+- **Vercel note:** preview deployments run with `NODE_ENV=production`, so only the configured
+  site/auth URLs are trusted there; admin sign-in on a `*.vercel.app` preview URL is refused unless
+  that origin is added to the configuration.
+
 ## 0l. Update — Phase 4.8: password-only admin auth and /admin login (2026-11-18, uncommitted)
 
 Supersedes the TOTP parts of §0j and §0k (decision by the owner on 2026-11-18).

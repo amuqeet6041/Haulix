@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import {
   GENERIC_SIGN_IN_ERROR,
   NETWORK_ERROR,
+  ORIGIN_ERROR,
   RATE_LIMITED_ERROR,
   UNAVAILABLE_ERROR,
 } from "@/content/admin-login";
@@ -68,7 +69,10 @@ export function AdminLoginForm({ notice }: AdminLoginFormProps) {
       });
       if (signIn.status === 429) return setError(RATE_LIMITED_ERROR);
       if (signIn.status === 503) return setError(UNAVAILABLE_ERROR);
-      if (!signIn.ok) return setError(GENERIC_SIGN_IN_ERROR);
+      if (!signIn.ok) {
+        const failure = (await signIn.json().catch(() => null)) as { code?: unknown } | null;
+        return setError(failure?.code === "INVALID_ORIGIN" ? ORIGIN_ERROR : GENERIC_SIGN_IN_ERROR);
+      }
 
       const me = await fetch("/api/admin/me", { cache: "no-store" });
       if (me.ok) {

@@ -219,8 +219,24 @@ Prepared now, without building any portal features:
 - Reuse: `components/ui`, design tokens, `lib/prisma.ts`, `lib/email`, `lib/api-response.ts`.
 - Data: add portal models (User, Truck, Load, Document, ...) to `prisma/schema.prisma`; Module 1
   tables are unaffected. A converted lead can later link to a portal account.
-- Authentication is **not chosen yet**. Decide it when Module 2 starts and protect `/portal/*` with
-  Next.js `proxy.ts` (formerly middleware) or per-layout checks.
+- **Authentication: Better Auth**, self-hosted on Neon through Prisma (`src/lib/auth.ts`,
+  `src/app/api/auth/[...all]`). Email and password only (two-factor/TOTP is postponed: the
+  plugin is not loaded, its `TwoFactor` table and `User.twoFactorEnabled` stay dormant), public
+  sign-up disabled. Roles via the admin plugin and `src/lib/auth-roles.ts`: `admin` now,
+  `carrier` reserved for the portal (no permissions yet). Admin accounts exist only for emails in
+  `ADMIN_EMAILS` and are created with `npm run admin:create`. Authorization must be checked in
+  every protected route handler and service; `proxy.ts` may add an early redirect but is never
+  the only check.
+- **Admin guard** (`src/lib/admin-guard.ts`): route handlers use `withAdmin(permissions, handler)`
+  (or `requireAdmin()`), services start with `assertAdmin(context, permissions)`. Admin access
+  needs a valid session, role `admin`, an allowlisted email, and no ban or impersonation.
+  Server-rendered admin pages use the same check via `requireAdminPage()` (`src/lib/admin-page.ts`).
+  `src/proxy.ts` only looks for a session cookie on `/admin` and `/api/admin`: pages without one
+  redirect to `/admin/login`, API calls get 401, all are marked no-store.
+- **Admin UI:** `/admin/login` (email, password with show/hide, one generic error for any
+  credential or access failure; signs in through `/api/auth/sign-in/email` so Better Auth's
+  rate limit applies, then confirms access with `GET /api/admin/me`). `/admin` is the dashboard
+  shell in `src/app/admin/(protected)`; every page there calls `requireAdminPage()`.
 
 ## 9. Known gaps (intentional, for later steps)
 

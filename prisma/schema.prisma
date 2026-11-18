@@ -84,14 +84,163 @@ model Lead {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  // Future administration
+  // Administration
+  /// LEGACY single notes field. Its content was copied into LeadNote by the
+  /// add_admin_auth migration; new notes go to LeadNote. Kept, never dropped.
   notes       String?   @db.Text
+  /// Set the first time an admin moves the lead to CONTACTED.
   contactedAt DateTime?
+
+  leadNotes  LeadNote[]
+  activities LeadActivity[]
 
   @@index([status, createdAt])
   @@index([type, createdAt])
+  @@index([type, status, createdAt])
   @@index([email])
   @@index([ipHash, createdAt])
+}
+
+/// Internal admin note on a lead. Several per lead, with author and timestamps.
+/// authorId is null for notes imported from the legacy Lead.notes field, or when
+/// the author's account was deleted.
+model LeadNote {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId, createdAt])
+}
+
+enum LeadActivityAction {
+  STATUS_CHANGED
+  NOTE_ADDED
+  NOTE_EDITED
+  NOTE_DELETED
+}
+
+/// Audit trail of admin changes to a lead. Rows are only ever inserted.
+model LeadActivity {
+  id         String             @id @default(cuid())
+  leadId     String
+  lead       Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?              @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     LeadActivityAction
+  fromStatus LeadStatus?
+  toStatus   LeadStatus?
+  /// The note concerned (no foreign key, so history survives a deleted note).
+  noteId     String?
+  /// Extra detail, e.g. the previous note body for NOTE_EDITED / NOTE_DELETED.
+  metadata   Json?
+  createdAt  DateTime           @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Authentication (Better Auth, self-hosted). Field names follow Better Auth's
+// schema for its core tables and the admin and twoFactor plugins
+// (better-auth 1.7.16). Shared by admins now and carriers later (role column).
+// ---------------------------------------------------------------------------
+
+model User {
+  id               String    @id
+  name             String
+  email            String    @unique
+  emailVerified    Boolean   @default(false)
+  image            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  /// "admin" or "carrier" (see src/lib/auth-roles.ts).
+  role             String?
+  banned           Boolean?  @default(false)
+  banReason        String?
+  banExpires       DateTime?
+  twoFactorEnabled Boolean?  @default(false)
+
+  sessions       Session[]
+  accounts       Account[]
+  twoFactors     TwoFactor[]
+  leadNotes      LeadNote[]
+  leadActivities LeadActivity[]
+
+  @@index([role])
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy String?
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  /// Password hash for providerId "credential". Never returned by the API.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+/// TOTP secret and backup codes (stored encrypted by Better Auth).
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String    @db.Text
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+}
+
+/// Better Auth rate-limit counters (database storage, shared by all instances).
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
 }
 
 model NewsletterSubscriber {

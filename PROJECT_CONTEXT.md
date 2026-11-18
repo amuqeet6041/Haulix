@@ -126,6 +126,81 @@ Supersedes §11 (database), §12 (validation rules) and the folder notes for `co
   truck count field is registered as `fleetSize` (id `fleetSize`, label unchanged).
 - Tests: 118 passing (validation per type, enum sync with Prisma, server-managed field stripping).
 
+## 0l. Update — Phase 4.8: password-only admin auth and /admin login (2026-11-18, uncommitted)
+
+Supersedes the TOTP parts of §0j and §0k (decision by the owner on 2026-11-18).
+
+- **Auth is email + password only.** The Better Auth `twoFactor` plugin and the trust-device
+  hook were removed from `src/lib/auth.ts`; the `TwoFactor` table and `User.twoFactorEnabled`
+  column stay in the database, dormant (no migration). `/api/auth/two-factor/*` returns 404.
+  The guard no longer checks two-factor; everything else is unchanged (session, role,
+  `ADMIN_EMAILS`, ban, impersonation, permissions, origin, no-store). Admin identity:
+  `admin@haulixlogistics.com` (Hostinger alias to `leads@`).
+- Fix: `withAdmin({})` (admin-only, no specific permission) was wrongly denied; empty permission
+  sets are now treated as "admin only".
+- **UI:** `/admin/login` (`src/app/admin/login/page.tsx`, `components/admin/admin-login-form.tsx`):
+  email, password with show/hide, loading state, accessible errors, one generic message for
+  wrong email, wrong password, non-admin or banned; separate messages only for rate limiting and
+  outage. `/admin` dashboard shell with sign-out (`src/app/admin/(protected)`), protected
+  server-side by `requireAdminPage()` (`src/lib/admin-page.ts`). `GET /api/admin/me`.
+- **Proxy:** `/admin` pages without a session cookie redirect to `/admin/login`; API gets 401.
+- Provisioning prints "sign in at /admin/login"; accounts are password-only. Admin not created yet.
+
+## 0k. Update — Phase 4.8 Step 2: admin authorization guard (2026-11-18, uncommitted)
+
+- **Guard** `src/lib/admin-guard.ts`: `requireAdmin(request, { permissions })` verifies the
+  session with Better Auth's server-side `getSession` (token looked up in the database, expiry
+  checked) and requires role `admin`, email in `ADMIN_EMAILS` (every request), not banned, not
+  impersonated, and `twoFactorEnabled === true`. `withAdmin(permissions, handler)` wraps route
+  handlers (adds same-origin check for non-GET, maps `AdminAccessError`, sets no-store headers).
+  `assertAdmin(context, permissions)` is for services: only contexts issued by the guard are
+  accepted (WeakSet brand), and the allowlist and permission are re-checked.
+- **Responses:** `{ ok: false, code, message }` with `code` `unauthenticated` (401),
+  `forbidden` (403, same body for role, allowlist and ban), `two_factor_required` (403),
+  `unavailable` (503). All protected responses: `Cache-Control: no-store`, `Pragma: no-cache`,
+  `X-Robots-Tag: noindex, nofollow`.
+- **TOTP:** Better Auth issues a session for a two-factor account only after the TOTP or
+  backup-code step; `trustDevice` is refused (before hook in `lib/auth.ts`), so every new
+  sign-in needs a code. Admins who have not finished enrollment are refused.
+- **Proxy** `src/proxy.ts` (Next 16): matches only `/admin` and `/api/admin`; 401 without a
+  session cookie, otherwise passes through with no-store/noindex headers. Never the authority.
+- `/api/auth` now returns an uncached 503 (not a bare 500) when the database or auth tables fail.
+- Migration `20261118052526_add_admin_auth` **applied** to the `.env.local` Neon database on
+  2026-11-18 with `prisma migrate deploy` (status up to date; 0 users; no legacy notes existed to
+  copy). Live: `/api/auth/get-session` 200 no-store, public sign-up 403.
+
+## 0j. Update — Phase 4.8 Step 1: admin auth foundation (2026-11-18, uncommitted)
+
+Approved decisions: Better Auth self-hosted on Neon via Prisma; email + password with mandatory
+TOTP for admins; `LeadNote` table with authorship and history; no public registration; admin
+accounts only for allowlisted emails; RBAC reusable for future carrier accounts; authorization in
+every handler and service, not only the proxy; `/portal` untouched.
+
+- **Dependencies:** `better-auth` 1.7.16 (pinned; chosen over newer releases because it is more
+  than two weeks old) and dev `tsx` 4.23.15 (runs `scripts/*.ts` that import app code, since the
+  Prisma 7 client is TypeScript only).
+- **Config:** `src/lib/auth.ts` (`createAuth`/`getAuth`, lazy): sign-up disabled, password 6 to
+  128 chars (relaxed from 12 by the owner on 2026-11-18; length is the only rule), sessions 12 h, cookie prefix `haulix`, rate limits stored in Postgres (5 sign-in or
+  TOTP attempts per 15 min), twoFactor plugin, admin plugin with `src/lib/auth-roles.ts`
+  (roles `admin`, `carrier`; admins cannot create users, set roles or impersonate over HTTP).
+  Database hooks block creating a non-allowlisted admin and signing in an admin who is no longer
+  in `ADMIN_EMAILS` (`src/lib/admin-allowlist.ts`). Route: `src/app/api/auth/[...all]/route.ts`
+  (503 until configured).
+- **Provisioning:** `npm run admin:create -- --email <e> --name "<n>" [--reset-password]`
+  (`scripts/create-admin.ts`, logic in `src/lib/admin-provisioning.ts`): allowlist required,
+  password policy, hidden prompt, existing accounts only changed with `--reset-password` (which
+  also signs out their sessions).
+- **Schema:** new `User`, `Session`, `Account`, `Verification`, `TwoFactor`, `RateLimit`
+  (Better Auth), `LeadNote`, `LeadActivity` + enum `LeadActivityAction`, index
+  `Lead(type, status, createdAt)`. `Lead.notes` kept; migration copies non-empty values into
+  `LeadNote` (author null, id `legacy_<leadId>`).
+- **Migration** `20261118052526_add_admin_auth` was **created but not applied** (additive only:
+  CREATE TYPE/TABLE/INDEX, foreign keys, and the notes copy). Apply after review with
+  `npx prisma migrate dev` (or `migrate deploy` in production).
+- **Not yet built:** admin guard (`requireAdmin` incl. TOTP-enabled check), proxy, admin lead
+  APIs and UI (next steps).
+- New env: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ADMIN_EMAILS`.
+
 ## 0i. Update — Phase 4.7 abuse protection (2026-11-18, uncommitted)
 
 Resolves K8. Details: `ARCHITECTURE.md` §6 "Abuse protection".

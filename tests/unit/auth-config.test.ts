@@ -1,65 +1,34 @@
 // @vitest-environment node
-import { memoryAdapter } from "better-auth/adapters/memory";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createAuth, trustedOriginsFor } from "@/lib/auth";
+import { trustedOriginsFor } from "@/lib/auth";
+
+import {
+  authRequest as post,
+  CookieJar,
+  createTestAuth,
+  stubAuthEnv,
+  TEST_PASSWORD,
+} from "../helpers/admin-auth";
 
 /**
  * Runs the real Better Auth configuration (lib/auth.ts) against Better Auth's
  * in-memory adapter, so the rules are tested end to end without a database.
  */
 
-const BASE = "http://localhost:3000";
 const ADMIN_EMAIL = "owner@haulix.test";
-const PASSWORD = "Correct-Horse-42!";
+const PASSWORD = TEST_PASSWORD;
 
-type Row = Record<string, unknown>;
-
-function setup() {
-  const db: Record<string, Row[]> = {
-    user: [],
-    session: [],
-    account: [],
-    verification: [],
-    twoFactor: [],
-    rateLimit: [],
-  };
-  const auth = createAuth({
-    database: memoryAdapter(db),
-    findUserForSession: async (id) => {
-      const user = db.user!.find((row) => row.id === id);
-      return user ? { role: (user.role as string) ?? null, email: user.email as string } : null;
-    },
-  });
-  return { auth, db };
-}
-
-function post(path: string, body: unknown, cookie?: string): Request {
-  return new Request(`${BASE}/api/auth${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Origin: BASE,
-      ...(cookie ? { Cookie: cookie } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-}
+const setup = createTestAuth;
 
 function cookieFrom(response: Response): string {
-  return response.headers
-    .getSetCookie()
-    .map((cookie) => cookie.split(";")[0])
-    .join("; ");
+  const jar = new CookieJar();
+  jar.store(response);
+  return jar.header();
 }
 
 beforeEach(() => {
-  vi.stubEnv("BETTER_AUTH_SECRET", "test-secret-test-secret-test-secret-123");
-  vi.stubEnv("BETTER_AUTH_URL", BASE);
-  vi.stubEnv("NEXT_PUBLIC_SITE_URL", BASE);
-  vi.stubEnv("ADMIN_EMAILS", ADMIN_EMAIL);
-  vi.spyOn(console, "warn").mockImplementation(() => {});
-  vi.spyOn(console, "error").mockImplementation(() => {});
+  stubAuthEnv({ adminEmails: ADMIN_EMAIL });
 });
 
 afterEach(() => {

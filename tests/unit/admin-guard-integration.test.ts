@@ -1,9 +1,9 @@
 // @vitest-environment node
-import { memoryAdapter } from "better-auth/adapters/memory";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { withAdmin, type SessionLike } from "@/lib/admin-guard";
-import { createAuth } from "@/lib/auth";
+import { withAdmin } from "@/lib/admin-guard";
+
+import { adminRequest, createTestAuth, stubAuthEnv, TEST_PASSWORD } from "../helpers/admin-auth";
 
 /**
  * End-to-end authorization: real Better Auth (lib/auth.ts config) on the
@@ -11,102 +11,26 @@ import { createAuth } from "@/lib/auth";
  * by withAdmin(). No mocks of the session logic.
  */
 
-const BASE = "http://localhost:3000";
 const ADMIN_EMAIL = "admin@haulix.test";
-const PASSWORD = "Correct-Horse-42!";
-
-type Row = Record<string, unknown>;
-
-class CookieJar {
-  private cookies = new Map<string, string>();
-  store(response: Response) {
-    for (const raw of response.headers.getSetCookie()) {
-      const [pair, ...attributes] = raw.split(";");
-      const index = pair!.indexOf("=");
-      const name = pair!.slice(0, index).trim();
-      const value = pair!.slice(index + 1).trim();
-      const expired = attributes.some((a) => /max-age=0/i.test(a)) || value === "";
-      if (expired) this.cookies.delete(name);
-      else this.cookies.set(name, value);
-    }
-  }
-  header() {
-    return [...this.cookies].map(([name, value]) => `${name}=${value}`).join("; ");
-  }
-}
+const PASSWORD = TEST_PASSWORD;
 
 function setup() {
-  const db: Record<string, Row[]> = {
-    user: [],
-    session: [],
-    account: [],
-    verification: [],
-    rateLimit: [],
-  };
-  const auth = createAuth({
-    database: memoryAdapter(db),
-    findUserForSession: async (id) => {
-      const user = db.user!.find((row) => row.id === id);
-      return user ? { role: (user.role as string) ?? null, email: user.email as string } : null;
-    },
-  });
-  const guardOptions = {
-    getSession: async (headers: Headers) =>
-      (await auth.api.getSession({ headers })) as SessionLike | null,
-    isConfigured: () => true,
-  };
+  const testAuth = createTestAuth();
   const probe = withAdmin(
     { lead: ["list"] },
     async (_request, admin) => Response.json({ ok: true, admin }),
-    guardOptions,
+    testAuth.guardOptions,
   );
 
-  async function call(path: string, body: unknown, jar?: CookieJar) {
-    const response = await auth.handler(
-      new Request(`${BASE}/api/auth${path}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: BASE,
-          ...(jar ? { Cookie: jar.header() } : {}),
-        },
-        body: JSON.stringify(body),
-      }),
-    );
-    jar?.store(response);
-    return response;
-  }
-
   async function probeWith(cookie: string, method = "GET") {
-    return probe(
-      new Request(`${BASE}/api/admin/probe`, {
-        method,
-        headers: { ...(cookie ? { Cookie: cookie } : {}), Origin: BASE },
-      }),
-      {},
-    );
+    return probe(adminRequest("/api/admin/probe", { method, cookies: cookie }), {});
   }
 
-  async function createUser(email: string, role: "admin" | "carrier") {
-    return auth.api.createUser({ body: { email, password: PASSWORD, name: "Person", role } });
-  }
-
-  async function signIn(email: string, password = PASSWORD) {
-    const jar = new CookieJar();
-    const response = await call("/sign-in/email", { email, password }, jar);
-    return { jar, response };
-  }
-
-  return { auth, db, call, probeWith, createUser, signIn, guardOptions };
+  return { ...testAuth, call: testAuth.authPost, probeWith };
 }
 
 beforeEach(() => {
-  vi.stubEnv("BETTER_AUTH_SECRET", "test-secret-test-secret-test-secret-123");
-  vi.stubEnv("BETTER_AUTH_URL", BASE);
-  vi.stubEnv("NEXT_PUBLIC_SITE_URL", BASE);
-  vi.stubEnv("ADMIN_EMAILS", ADMIN_EMAIL);
-  vi.spyOn(console, "warn").mockImplementation(() => {});
-  vi.spyOn(console, "error").mockImplementation(() => {});
+  stubAuthEnv({ adminEmails: ADMIN_EMAIL });
 });
 
 afterEach(() => {
@@ -219,9 +143,10 @@ describe("admin authorization end to end (email + password)", () => {
     const handler = vi.fn(async () => Response.json({ ok: true }));
     const route = withAdmin({ lead: ["update-status"] }, handler, guardOptions);
     const response = await route(
-      new Request(`${BASE}/api/admin/probe`, {
+      adminRequest("/api/admin/probe", {
         method: "POST",
-        headers: { Cookie: jar.header(), Origin: "https://evil.test" },
+        cookies: jar,
+        origin: "https://evil.test",
       }),
       {},
     );

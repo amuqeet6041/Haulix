@@ -20,6 +20,7 @@ export default function PricingPage() {
   return (
     <>
       <PageHeader
+        photo="sunset"
         eyebrow={header.eyebrow}
         title={header.title}
         description={header.description}
@@ -44,13 +45,13 @@ export default function PricingPage() {
             </Reveal>
             <Reveal delay={0.08} className="lg:col-span-6">
               <div className="bg-ember rounded-panel border border-white/10 p-7 sm:p-9">
-                <p className="label-caps text-orange">{factors.eyebrow}</p>
+                <p className="text-sm font-semibold text-orange">{factors.eyebrow}</p>
                 <h2 className="mt-3 text-2xl font-semibold tracking-tight">{factors.title}</h2>
-                <dl className="mt-7 divide-y divide-white/10">
+                <dl className="mt-7 space-y-3">
                   {factors.items.map((item) => (
                     <div
                       key={item.title}
-                      className="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-6"
+                      className="grid gap-1 rounded-xl bg-white/5 p-4 sm:grid-cols-[11rem_1fr] sm:gap-6"
                     >
                       <dt className="font-display font-semibold text-white">{item.title}</dt>
                       <dd className="text-sm leading-relaxed text-subtle-foreground">
@@ -66,7 +67,7 @@ export default function PricingPage() {
       </section>
 
       {/* Quote profiles */}
-      <section aria-labelledby="profiles-title" className="border-t border-border section-y">
+      <section aria-labelledby="profiles-title" className="section-y">
         <Container>
           <Reveal>
             <SectionHeading

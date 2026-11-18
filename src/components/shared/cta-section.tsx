@@ -74,11 +74,6 @@ export function CtaSection({
                 <div aria-hidden="true" className="bg-banner-shade absolute inset-0 -z-10" />
               </>
             ) : null}
-            <div
-              aria-hidden="true"
-              className="absolute top-0 right-0 -z-10 hidden h-24 w-64 rounded-bl-media bg-orange md:block"
-            />
-
             <div className="px-6 py-16 sm:px-12 sm:py-20 lg:px-16 lg:py-24">
               {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
               <h2
@@ -105,11 +100,7 @@ export function CtaSection({
                   </SecondaryButton>
                 ) : null}
               </div>
-              {children ? (
-                <div className="mt-12 max-w-xl border-t border-white/10 pt-6 text-sm">
-                  {children}
-                </div>
-              ) : null}
+              {children ? <div className="mt-10 max-w-xl text-sm">{children}</div> : null}
             </div>
           </div>
         </Reveal>

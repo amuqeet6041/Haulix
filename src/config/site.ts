@@ -21,12 +21,14 @@ export const siteConfig = {
   url: siteUrl,
   locale: "en_US",
   /**
-   * Public contact details. Intentionally empty until the business provides
-   * real ones. The footer and contact page only render values that are set.
+   * Official public contact details. The footer, contact page and contact
+   * section only render values that are set. `phoneHref` is the dialable form
+   * of `phone`.
    */
   contact: {
-    email: "",
-    phone: "",
+    email: "support@haulixlogistics.com",
+    phone: "+1 (703) 301-6888",
+    phoneHref: "tel:+17033016888",
     address: "",
   },
   /** Social profiles. Add real URLs; empty entries are not rendered. */

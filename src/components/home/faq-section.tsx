@@ -11,11 +11,7 @@ import { faqJsonLd } from "@/lib/seo";
 
 export function FaqSection() {
   return (
-    <section
-      id={landingSectionIds.faq}
-      aria-labelledby="faq-title"
-      className="border-t border-border section-y"
-    >
+    <section id={landingSectionIds.faq} aria-labelledby="faq-title" className="section-y">
       <JsonLd data={faqJsonLd(faqs)} />
       <Container>
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-12">

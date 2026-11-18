@@ -1,4 +1,12 @@
-import { Check } from "lucide-react";
+import {
+  Check,
+  CircleDollarSign,
+  FileSignature,
+  Handshake,
+  Search,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
 import Image from "next/image";
 
 import { ArrowLink } from "@/components/shared/arrow-link";
@@ -18,12 +26,16 @@ export const metadata = buildMetadata({
   path: "/how-it-works",
 });
 
+/** Icons for the load cycle stages, used in order. */
+const stageIcons: LucideIcon[] = [Search, Handshake, FileSignature, Truck, CircleDollarSign];
+
 export default function HowItWorksPage() {
   const { header, onboarding, loadCycle, prepare, cta } = howItWorksPage;
 
   return (
     <>
       <PageHeader
+        photo="night"
         eyebrow={header.eyebrow}
         title={header.title}
         description={header.description}
@@ -49,10 +61,6 @@ export default function HowItWorksPage() {
             </div>
 
             <ol className="relative lg:col-span-7">
-              <span
-                aria-hidden="true"
-                className="absolute top-3 bottom-3 left-[1.375rem] w-px bg-gradient-to-b from-orange via-orange/40 to-transparent"
-              />
               {onboardingSteps.map((step, index) => (
                 <li key={step.title} className="relative pb-12 pl-16 last:pb-0 sm:pl-20">
                   <Reveal delay={index * 0.06}>
@@ -62,9 +70,7 @@ export default function HowItWorksPage() {
                     >
                       {index + 1}
                     </span>
-                    <p className="font-display text-xs font-semibold tracking-[0.2em] text-orange uppercase">
-                      Step {String(index + 1).padStart(2, "0")}
-                    </p>
+                    <p className="text-sm font-semibold text-orange">Step {index + 1}</p>
                     <h3 className="mt-2 text-2xl font-semibold tracking-tight">{step.title}</h3>
                     <p className="mt-2 text-gray">{step.description}</p>
                     <p className="mt-3 leading-relaxed text-subtle-foreground">{step.detail}</p>
@@ -95,11 +101,16 @@ export default function HowItWorksPage() {
               <li key={stage.title} className="h-full">
                 <Reveal delay={index * 0.06} className="h-full">
                   <div className="flex h-full flex-col rounded-panel border border-white/10 bg-ink/60 p-6 backdrop-blur-sm">
-                    <div className="flex items-center gap-3">
-                      <span className="font-display text-3xl font-light tracking-tight text-orange">
-                        {String(index + 1).padStart(2, "0")}
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex size-11 items-center justify-center rounded-xl bg-orange text-ink">
+                        {(() => {
+                          const Icon = stageIcons[index % stageIcons.length]!;
+                          return <Icon className="size-5" aria-hidden="true" />;
+                        })()}
                       </span>
-                      <span aria-hidden="true" className="h-px flex-1 bg-white/15" />
+                      <span className="font-display text-2xl font-light text-white/30">
+                        {index + 1}
+                      </span>
                     </div>
                     <h3 className="mt-6 text-xl font-semibold tracking-tight">{stage.title}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-subtle-foreground">

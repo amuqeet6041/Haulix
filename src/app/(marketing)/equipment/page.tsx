@@ -1,7 +1,7 @@
 import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import Link from "next/link";
 
-import { ServiceIcon } from "@/components/services/service-icon";
+import { EquipmentIllustration } from "@/components/services/equipment-illustration";
 import { Container } from "@/components/shared/container";
 import { CtaSection } from "@/components/shared/cta-section";
 import { PageHeader } from "@/components/shared/page-header";
@@ -24,6 +24,7 @@ export default function EquipmentPage() {
   return (
     <>
       <PageHeader
+        photo="sunset"
         eyebrow={header.eyebrow}
         title={header.title}
         description={header.description}
@@ -31,7 +32,7 @@ export default function EquipmentPage() {
       />
 
       {/* Category jump links */}
-      <nav aria-label="Equipment categories" className="border-b border-border bg-ink-warm/60">
+      <nav aria-label="Equipment categories" className="bg-ink-warm/60">
         <Container>
           <ul className="flex flex-wrap gap-x-8 gap-y-3 py-5 text-sm font-medium">
             {categories.map((group) => (
@@ -64,9 +65,8 @@ export default function EquipmentPage() {
               <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
                 <Reveal className="lg:col-span-4">
                   <div className="lg:sticky lg:top-28">
-                    <p className="label-caps text-orange">
-                      {String(groupIndex + 1).padStart(2, "0")} · {items.length}{" "}
-                      {items.length === 1 ? "type" : "types"}
+                    <p className="text-sm font-semibold text-orange">
+                      {items.length} {items.length === 1 ? "type" : "types"}
                     </p>
                     <h2
                       id={`${group.id}-title`}
@@ -89,9 +89,9 @@ export default function EquipmentPage() {
                           className="group grid gap-6 rounded-panel card-surface p-7 transition-colors duration-300 hover:border-card-border-hover sm:p-8 md:grid-cols-[1fr_15rem]"
                         >
                           <div>
-                            <span className="inline-flex size-11 items-center justify-center rounded-xl bg-brown text-orange">
-                              <ServiceIcon name={service.icon} className="size-5" />
-                            </span>
+                            <div className="flex h-28 max-w-xs items-center justify-center rounded-xl bg-ink/60 px-4 py-3">
+                              <EquipmentIllustration slug={service.slug} />
+                            </div>
                             <h3
                               id={`${service.slug}-title`}
                               className="mt-5 text-2xl font-semibold tracking-tight"
@@ -112,7 +112,7 @@ export default function EquipmentPage() {
                               <ArrowUpRight className="size-4" aria-hidden="true" />
                             </Link>
                           </div>
-                          <ul className="space-y-3 border-t border-white/10 pt-6 text-sm text-gray md:border-t-0 md:border-l md:pt-1 md:pl-6">
+                          <ul className="space-y-3 text-sm text-gray md:pt-2">
                             {service.highlights.map((highlight) => (
                               <li key={highlight} className="flex items-start gap-2.5">
                                 <Check

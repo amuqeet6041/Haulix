@@ -1,34 +1,38 @@
+import { FileCheck2, Handshake, Truck, Users, type LucideIcon } from "lucide-react";
+
 import { Container } from "@/components/shared/container";
 import { Reveal } from "@/components/shared/reveal";
 import { trustHighlights } from "@/content/landing";
 
+/** One icon per highlight, in the same order as `trustHighlights`. */
+const icons: LucideIcon[] = [Users, Truck, Handshake, FileCheck2];
+
 /** Credibility highlights under the hero. Factual service descriptions only, no statistics. */
 export function TrustStrip() {
   return (
-    <section
-      aria-label="Why carriers choose HAULIX"
-      className="border-y border-border bg-ink-warm/60"
-    >
+    <section aria-label="Why carriers choose HAULIX" className="bg-ink-warm/60 py-12 sm:py-16">
       <Container>
-        <ul className="grid divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
-          {trustHighlights.map((item, index) => (
-            <li
-              key={item.title}
-              className="py-7 sm:px-6 sm:py-9 sm:nth-[n+3]:border-t sm:nth-[n+3]:border-border lg:first:pl-0 lg:nth-[n+3]:border-t-0"
-            >
-              <Reveal delay={index * 0.05}>
-                <p className="font-display text-xs font-semibold tracking-[0.2em] text-orange">
-                  {String(index + 1).padStart(2, "0")}
-                </p>
-                <p className="mt-3 font-display text-lg font-semibold tracking-tight text-white">
-                  {item.title}
-                </p>
-                <p className="mt-1.5 text-sm leading-relaxed text-subtle-foreground">
-                  {item.description}
-                </p>
-              </Reveal>
-            </li>
-          ))}
+        <ul className="grid gap-9 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+          {trustHighlights.map((item, index) => {
+            const Icon = icons[index] ?? Truck;
+            return (
+              <li key={item.title}>
+                <Reveal delay={index * 0.05} className="flex gap-4">
+                  <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-xl bg-orange/15 text-orange">
+                    <Icon className="size-6" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="font-display text-lg font-semibold tracking-tight text-white">
+                      {item.title}
+                    </p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-subtle-foreground">
+                      {item.description}
+                    </p>
+                  </div>
+                </Reveal>
+              </li>
+            );
+          })}
         </ul>
       </Container>
     </section>

@@ -34,7 +34,7 @@ export function TestimonialsSection() {
           </div>
         ) : (
           <Reveal delay={0.05}>
-            <div className="mt-12 flex flex-col gap-6 rounded-panel border border-dashed border-white/15 p-8 sm:flex-row sm:items-center sm:p-10">
+            <div className="mt-12 flex flex-col gap-6 rounded-panel card-surface p-8 sm:flex-row sm:items-center sm:p-10">
               <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brown text-orange">
                 <Quote className="size-6" aria-hidden="true" />
               </span>

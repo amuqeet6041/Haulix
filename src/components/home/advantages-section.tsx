@@ -1,8 +1,13 @@
+import { Clock, Headset, SlidersHorizontal, Truck, type LucideIcon } from "lucide-react";
+
 import { Container } from "@/components/shared/container";
 import { PrimaryButton } from "@/components/shared/primary-button";
 import { Reveal } from "@/components/shared/reveal";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { advantages } from "@/content/landing";
+
+/** One icon per advantage, in the same order as `advantages.items`. */
+const icons: LucideIcon[] = [SlidersHorizontal, Truck, Headset, Clock];
 
 export function AdvantagesSection() {
   return (
@@ -23,27 +28,26 @@ export function AdvantagesSection() {
             </Reveal>
           </div>
 
-          <ol className="lg:col-span-7 lg:pl-8">
-            {advantages.items.map((item, index) => (
-              <li key={item.title}>
-                <Reveal delay={index * 0.05}>
-                  <div className="group grid gap-3 border-t border-border py-8 transition-colors duration-300 last:border-b sm:grid-cols-[5rem_1fr] sm:gap-6 sm:py-10">
-                    <span className="font-display text-4xl font-light tracking-tight text-subtle-foreground transition-colors duration-300 group-hover:text-orange">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <div>
-                      <h3 className="text-xl font-semibold tracking-tight sm:text-2xl">
-                        {item.title}
-                      </h3>
-                      <p className="mt-2 max-w-xl leading-relaxed text-subtle-foreground">
+          <ul className="grid gap-5 sm:grid-cols-2 lg:col-span-7">
+            {advantages.items.map((item, index) => {
+              const Icon = icons[index] ?? Truck;
+              return (
+                <li key={item.title}>
+                  <Reveal delay={index * 0.05} className="h-full">
+                    <div className="group h-full rounded-2xl card-surface p-6 transition-colors duration-300 hover:border-card-border-hover sm:p-7">
+                      <span className="inline-flex size-12 items-center justify-center rounded-xl bg-orange/15 text-orange transition-colors duration-300 group-hover:bg-orange group-hover:text-ink">
+                        <Icon className="size-6" aria-hidden="true" />
+                      </span>
+                      <h3 className="mt-5 text-xl font-semibold tracking-tight">{item.title}</h3>
+                      <p className="mt-2 leading-relaxed text-subtle-foreground">
                         {item.description}
                       </p>
                     </div>
-                  </div>
-                </Reveal>
-              </li>
-            ))}
-          </ol>
+                  </Reveal>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </Container>
     </section>

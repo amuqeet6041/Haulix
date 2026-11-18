@@ -42,14 +42,14 @@ export function EquipmentSection() {
             <Reveal delay={0.28} className="h-full">
               <Link
                 href="/get-started"
-                className="group flex h-full min-h-56 flex-col justify-between rounded-2xl bg-orange p-6 text-ink transition-all duration-300 hover:-translate-y-1 hover:shadow-glow motion-reduce:hover:translate-y-0"
+                className="group flex h-full min-h-56 flex-col justify-between rounded-2xl border border-orange/30 bg-brown p-6 text-white transition-all duration-300 hover:-translate-y-1 hover:border-orange motion-reduce:hover:translate-y-0"
               >
-                <span className="label-caps">Not listed?</span>
+                <span className="text-sm font-semibold text-orange">Not listed?</span>
                 <span>
                   <span className="block font-display text-xl font-semibold tracking-tight">
                     Tell us about your truck
                   </span>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold">
+                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-orange">
                     Get Started
                     <ArrowRight
                       className="size-4 transition-transform duration-200 group-hover:translate-x-1"

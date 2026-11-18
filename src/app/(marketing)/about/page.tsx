@@ -1,3 +1,15 @@
+import {
+  Building2,
+  Compass,
+  Eye,
+  Handshake,
+  Heart,
+  MessagesSquare,
+  ShieldCheck,
+  Truck,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import Image from "next/image";
 
 import { ArrowLink } from "@/components/shared/arrow-link";
@@ -17,12 +29,17 @@ export const metadata = buildMetadata({
   path: "/about",
 });
 
+/** Icons for the value and audience cards, used in order. */
+const valueIcons: LucideIcon[] = [ShieldCheck, MessagesSquare, Handshake, Compass, Eye, Heart];
+const audienceIcons: LucideIcon[] = [UserRound, Truck, Building2];
+
 export default function AboutPage() {
   const { header, intro, mission, vision, values, audience, cta } = aboutPage;
 
   return (
     <>
       <PageHeader
+        photo="sunset"
         eyebrow={header.eyebrow}
         title={header.title}
         description={header.description}
@@ -69,7 +86,7 @@ export default function AboutPage() {
           <div className="grid gap-5 md:grid-cols-5">
             <Reveal className="md:col-span-3">
               <div className="flex h-full flex-col justify-between gap-10 rounded-panel bg-orange p-8 text-ink sm:p-10">
-                <h2 className="label-caps">{mission.label}</h2>
+                <h2 className="text-base font-semibold">{mission.label}</h2>
                 <p className="font-display text-2xl leading-snug font-medium tracking-[-0.02em] text-balance sm:text-3xl">
                   {mission.text}
                 </p>
@@ -77,7 +94,7 @@ export default function AboutPage() {
             </Reveal>
             <Reveal delay={0.08} className="md:col-span-2">
               <div className="bg-ember flex h-full flex-col justify-between gap-10 rounded-panel border border-white/10 p-8 sm:p-10">
-                <h2 className="label-caps text-orange">{vision.label}</h2>
+                <h2 className="text-base font-semibold text-orange">{vision.label}</h2>
                 <p className="font-display text-xl leading-snug font-medium tracking-[-0.02em] text-white sm:text-2xl">
                   {vision.text}
                 </p>
@@ -88,7 +105,7 @@ export default function AboutPage() {
       </section>
 
       {/* Values */}
-      <section aria-labelledby="values-title" className="border-t border-border section-y">
+      <section aria-labelledby="values-title" className="section-y">
         <Container>
           <div className="grid gap-12 lg:grid-cols-12">
             <Reveal className="lg:col-span-4">
@@ -99,45 +116,55 @@ export default function AboutPage() {
                 description={values.description}
               />
             </Reveal>
-            <ol className="grid gap-x-10 gap-y-2 sm:grid-cols-2 lg:col-span-8">
-              {values.items.map((item, index) => (
-                <li key={item.title} className="border-t border-orange/50 pt-6 pb-8">
-                  <Reveal delay={index * 0.05}>
-                    <span className="font-display text-sm font-semibold tracking-[0.2em] text-orange">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <h3 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
-                      {item.title}
-                    </h3>
-                    <p className="mt-2 leading-relaxed text-subtle-foreground">
-                      {item.description}
-                    </p>
-                  </Reveal>
-                </li>
-              ))}
-            </ol>
+            <ul className="grid gap-5 sm:grid-cols-2 lg:col-span-8">
+              {values.items.map((item, index) => {
+                const Icon = valueIcons[index % valueIcons.length]!;
+                return (
+                  <li key={item.title}>
+                    <Reveal delay={index * 0.05} className="h-full">
+                      <div className="h-full rounded-2xl card-surface p-6 sm:p-7">
+                        <span className="inline-flex size-12 items-center justify-center rounded-xl bg-orange/15 text-orange">
+                          <Icon className="size-6" aria-hidden="true" />
+                        </span>
+                        <h3 className="mt-5 text-xl font-semibold tracking-tight">{item.title}</h3>
+                        <p className="mt-2 leading-relaxed text-subtle-foreground">
+                          {item.description}
+                        </p>
+                      </div>
+                    </Reveal>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </Container>
       </section>
 
       {/* Audience */}
-      <section aria-labelledby="audience-title" className="border-y border-border bg-ink-warm/60">
+      <section aria-labelledby="audience-title" className="bg-ink-warm/60">
         <Container className="py-16 sm:py-20">
           <Reveal>
             <SectionHeading id="audience-title" eyebrow={audience.eyebrow} title={audience.title} />
           </Reveal>
-          <ul className="mt-12 grid gap-px overflow-hidden rounded-panel border border-white/10 bg-white/10 md:grid-cols-3">
-            {audience.items.map((item, index) => (
-              <li key={item.title} className="bg-ink-warm p-7 sm:p-8">
-                <Reveal delay={index * 0.06}>
-                  <span aria-hidden="true" className="block h-px w-10 bg-orange" />
-                  <h3 className="mt-6 text-xl font-semibold tracking-tight">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-subtle-foreground">
-                    {item.description}
-                  </p>
-                </Reveal>
-              </li>
-            ))}
+          <ul className="mt-12 grid gap-5 md:grid-cols-3">
+            {audience.items.map((item, index) => {
+              const Icon = audienceIcons[index % audienceIcons.length]!;
+              return (
+                <li key={item.title}>
+                  <Reveal delay={index * 0.06} className="h-full">
+                    <div className="h-full rounded-2xl card-surface p-7 sm:p-8">
+                      <span className="inline-flex size-12 items-center justify-center rounded-xl bg-orange/15 text-orange">
+                        <Icon className="size-6" aria-hidden="true" />
+                      </span>
+                      <h3 className="mt-6 text-xl font-semibold tracking-tight">{item.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-subtle-foreground">
+                        {item.description}
+                      </p>
+                    </div>
+                  </Reveal>
+                </li>
+              );
+            })}
           </ul>
         </Container>
       </section>

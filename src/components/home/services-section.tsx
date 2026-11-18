@@ -1,3 +1,6 @@
+import { FileText, Handshake, Search, Truck, type LucideIcon } from "lucide-react";
+import Image from "next/image";
+
 import { ArrowLink } from "@/components/shared/arrow-link";
 import { Container } from "@/components/shared/container";
 import { Reveal } from "@/components/shared/reveal";
@@ -6,69 +9,63 @@ import { landingSectionIds } from "@/config/navigation";
 import { services, type TextItem } from "@/content/landing";
 import { cn } from "@/lib/utils";
 
-/** Decorative orange curve used on the featured card (echoes the logo swoosh). */
-function SwooshLine() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 400 240"
-      fill="none"
-      className="pointer-events-none absolute inset-x-0 top-20 h-44 w-full text-orange"
-      preserveAspectRatio="none"
-    >
-      <path
-        d="M-10 220 C 80 210, 120 120, 200 130 S 320 40, 420 20"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeOpacity="0.9"
-      />
-      <path
-        d="M-10 240 C 90 235, 140 160, 220 165 S 330 90, 420 70"
-        stroke="currentColor"
-        strokeWidth="1"
-        strokeOpacity="0.35"
-      />
-    </svg>
-  );
-}
+/** One icon per service, in the same order as `services.items`. */
+const icons: LucideIcon[] = [Truck, Search, Handshake, FileText];
 
 function ServiceTile({
   item,
-  index,
+  icon: Icon,
   featured = false,
   className,
 }: {
   item: TextItem;
-  index: number;
+  icon: LucideIcon;
   featured?: boolean;
   className?: string;
 }) {
   return (
     <article
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-panel border border-white/10 p-7 transition-all duration-300 hover:-translate-y-1 hover:border-orange/50 hover:shadow-lift sm:p-8",
-        featured ? "bg-ember min-h-[26rem]" : "bg-ink-warm/70",
+        "group relative isolate flex h-full flex-col overflow-hidden rounded-panel border border-white/10 p-7 transition-all duration-300 hover:-translate-y-1 hover:border-orange/50 hover:shadow-lift motion-reduce:hover:translate-y-0 sm:p-8",
+        featured ? "min-h-[26rem] bg-ink-warm" : "bg-ink-warm/70",
         className,
       )}
     >
-      {featured ? <SwooshLine /> : null}
-      <div className="relative flex items-start justify-between gap-4">
-        <span className="font-display text-sm font-semibold tracking-[0.2em] text-orange">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-      </div>
+      {featured ? (
+        <>
+          <Image
+            src="/images/general/truck-sunset-highway.jpg"
+            alt=""
+            fill
+            sizes="(min-width: 1024px) 33vw, 100vw"
+            className="-z-20 object-cover object-[30%_50%] transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-gradient-to-t from-ink via-ink/70 to-ink/10"
+          />
+        </>
+      ) : null}
+      <span
+        className={cn(
+          "inline-flex size-12 items-center justify-center rounded-xl",
+          featured ? "bg-orange text-ink" : "bg-orange/15 text-orange",
+        )}
+      >
+        <Icon className="size-6" aria-hidden="true" />
+      </span>
       <h3
         className={cn(
-          "relative mt-auto pt-10 font-medium tracking-[-0.03em]",
-          featured ? "text-3xl sm:text-4xl" : "text-2xl",
+          "font-medium tracking-[-0.03em]",
+          featured ? "mt-auto pt-24 text-3xl sm:text-4xl" : "mt-6 text-2xl",
         )}
       >
         {item.title}
       </h3>
       <p
         className={cn(
-          "relative mt-3 leading-relaxed text-subtle-foreground",
-          featured ? "max-w-sm text-base" : "text-sm",
+          "mt-3 leading-relaxed",
+          featured ? "max-w-sm text-base text-gray" : "text-sm text-subtle-foreground",
         )}
       >
         {item.description}
@@ -102,7 +99,7 @@ export function ServicesSection() {
         <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
           {featured ? (
             <Reveal className="md:col-span-2 lg:col-span-1 lg:row-span-2">
-              <ServiceTile item={featured} index={0} featured />
+              <ServiceTile item={featured} icon={icons[0]!} featured />
             </Reveal>
           ) : null}
           {rest.map((item, i) => (
@@ -111,7 +108,7 @@ export function ServicesSection() {
               delay={(i + 1) * 0.05}
               className={cn(i === rest.length - 1 && "md:col-span-2")}
             >
-              <ServiceTile item={item} index={i + 1} />
+              <ServiceTile item={item} icon={icons[i + 1] ?? Truck} />
             </Reveal>
           ))}
         </div>

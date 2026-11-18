@@ -16,19 +16,9 @@ interface SectionHeadingProps {
   className?: string;
 }
 
-/** Orange rule + small caps label shown above section headings. */
+/** Short orange label above a heading. Sentence case, no rule or letter spacing. */
 export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <p
-      className={cn(
-        "inline-flex items-center gap-3 text-xs font-semibold tracking-[0.24em] text-orange uppercase",
-        className,
-      )}
-    >
-      <span aria-hidden="true" className="h-px w-8 bg-orange" />
-      {children}
-    </p>
-  );
+  return <p className={cn("text-sm font-semibold text-orange", className)}>{children}</p>;
 }
 
 export function SectionHeading({

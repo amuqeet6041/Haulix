@@ -30,7 +30,7 @@ export function PricingCard({
         {plan.name}
       </h3>
       <p className="mt-1.5 text-sm text-subtle-foreground">{plan.audience}</p>
-      <div className="mt-7 border-t border-white/10 pt-6">
+      <div className="mt-7">
         <p className="font-display text-2xl font-light tracking-tight text-orange">
           {plan.priceLabel}
         </p>
@@ -39,7 +39,7 @@ export function PricingCard({
         ) : null}
       </div>
       {plan.featuresLabel ? (
-        <p className="mt-7 label-caps text-gray">{plan.featuresLabel}</p>
+        <p className="mt-7 text-sm font-semibold text-white">{plan.featuresLabel}</p>
       ) : null}
       <ul
         className={cn("flex-1 space-y-3 text-sm text-gray", plan.featuresLabel ? "mt-4" : "mt-7")}

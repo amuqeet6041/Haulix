@@ -24,6 +24,7 @@ export default function ServicesPage() {
   return (
     <>
       <PageHeader
+        photo="night"
         eyebrow={header.eyebrow}
         title={header.title}
         description={header.description}
@@ -46,7 +47,7 @@ export default function ServicesPage() {
                 aria-labelledby="control-title"
                 className="bg-ember rounded-panel border border-white/10 p-7 sm:p-8"
               >
-                <p className="label-caps text-orange">{control.eyebrow}</p>
+                <p className="text-sm font-semibold text-orange">{control.eyebrow}</p>
                 <h2 id="control-title" className="mt-3 text-2xl font-semibold tracking-tight">
                   {control.title}
                 </h2>
@@ -67,20 +68,17 @@ export default function ServicesPage() {
             </Reveal>
           </div>
 
-          <ol className="mt-16 border-b border-border lg:mt-20">
+          <ol className="mt-16 space-y-5 lg:mt-20">
             {dispatchServices.map((service, index) => (
-              <li key={service.id} id={service.id} className="scroll-mt-28 border-t border-border">
+              <li key={service.id} id={service.id} className="scroll-mt-28">
                 <Reveal delay={Math.min(index * 0.04, 0.2)}>
                   <article
                     aria-labelledby={`${service.id}-title`}
-                    className="group grid gap-6 py-10 sm:py-12 lg:grid-cols-12 lg:gap-10"
+                    className="group grid gap-6 rounded-panel card-surface p-6 transition-colors duration-300 hover:border-card-border-hover sm:p-8 lg:grid-cols-12 lg:gap-10"
                   >
-                    <div className="flex items-center gap-4 lg:col-span-1 lg:flex-col lg:items-start">
-                      <span className="font-display text-sm font-semibold tracking-[0.2em] text-orange">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <span className="inline-flex size-11 items-center justify-center rounded-xl bg-brown text-orange transition-colors duration-300 group-hover:bg-orange group-hover:text-ink">
-                        <DispatchServiceIcon name={service.icon} className="size-5" />
+                    <div className="lg:col-span-1">
+                      <span className="inline-flex size-12 items-center justify-center rounded-xl bg-orange/15 text-orange transition-colors duration-300 group-hover:bg-orange group-hover:text-ink">
+                        <DispatchServiceIcon name={service.icon} className="size-6" />
                       </span>
                     </div>
                     <div className="lg:col-span-6">
@@ -117,7 +115,7 @@ export default function ServicesPage() {
       <section aria-labelledby="services-equipment-title" className="section-b">
         <Container>
           <Reveal>
-            <div className="bg-route-grid relative overflow-hidden rounded-banner bg-orange p-8 text-ink sm:p-12">
+            <div className="relative overflow-hidden rounded-banner bg-orange p-8 text-ink sm:p-12">
               <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
                 <div className="lg:col-span-7">
                   <h2

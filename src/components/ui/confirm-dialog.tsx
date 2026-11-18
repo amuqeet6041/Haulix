@@ -22,6 +22,12 @@ export interface ConfirmDialogProps {
    * stays open so the person can retry or cancel.
    */
   onConfirm: () => void | Promise<void>;
+  /**
+   * Where focus goes when the dialog closes. Defaults to whatever had focus
+   * when it opened. Use it when the opener may no longer be usable afterwards
+   * (for example a button that becomes disabled once the action succeeded).
+   */
+  returnFocus?: () => HTMLElement | null | undefined;
 }
 
 const destructiveButton =
@@ -45,6 +51,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   tone = "default",
   onConfirm,
+  returnFocus,
 }: ConfirmDialogProps) {
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   /** What had focus when the dialog opened (usually the button that opened it). */
@@ -97,8 +104,8 @@ export function ConfirmDialog({
           // leave focus on the page body. Send it back to the opener instead.
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            const opener = openerRef.current;
-            if (opener?.isConnected) opener.focus();
+            const target = returnFocus?.() ?? openerRef.current;
+            if (target?.isConnected) target.focus();
             openerRef.current = null;
           }}
           className="fixed top-1/2 left-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-panel card-surface bg-ink-warm p-6 shadow-lift data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 sm:p-7"

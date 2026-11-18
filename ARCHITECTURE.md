@@ -3,6 +3,11 @@
 HAULIX Module 1 is a **modular monolith**: one Next.js (App Router) application with clear layers
 and no microservices. Module 2 (Carrier Portal) will live in the same codebase under `/portal`.
 
+> **Admin panel:** the private admin area (`/admin`, `/api/admin`: dashboard, leads, notes, account)
+> has its own document, [ADMIN_PANEL.md](ADMIN_PANEL.md), covering its layers (proxy, page guard,
+> `withAdmin`, services), authentication, roles, workflows, testing and deployment. This file
+> describes the public site layers below.
+
 ## 1. Layers
 
 | #   | Layer                | Where                                                  | Responsibility                              |

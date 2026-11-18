@@ -115,6 +115,18 @@ export const leadNoteSchema = z.strictObject({
 
 export type LeadNoteInput = z.output<typeof leadNoteSchema>;
 
+/**
+ * Editing a note. `expectedUpdatedAt` is the note's `updatedAt` as the admin
+ * saw it; if the note changed since, the edit is refused with 409 instead of
+ * silently overwriting.
+ */
+export const leadNoteEditSchema = z.strictObject({
+  body: leadNoteSchema.shape.body,
+  expectedUpdatedAt: z.iso.datetime({ error: "Invalid timestamp." }).optional(),
+});
+
+export type LeadNoteEdit = z.output<typeof leadNoteEditSchema>;
+
 /** Reads URLSearchParams (or Next's searchParams object) into a plain record, first value wins. */
 export function searchParamsToRecord(
   params: URLSearchParams | Record<string, string | string[] | undefined>,

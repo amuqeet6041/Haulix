@@ -10,6 +10,29 @@
 
 ---
 
+## 0n. Update — Phase 4.9 admin panel complete (2026-11-18)
+
+The admin panel (Steps 0 to 10) is documented in full, as implemented, in
+**[ADMIN_PANEL.md](ADMIN_PANEL.md)**. Summary for a new session:
+
+- **What exists:** `/admin/login`, dashboard, searchable lead list, read-only lead detail with a
+  status control (any status to any, confirmed, transactional, conflict-safe), internal notes (add;
+  edit and delete only your own; legacy notes locked), an activity timeline, and `/admin/account`
+  (name, password via Better Auth, sessions list, revoke, sign out everywhere).
+- **Security model:** proxy (cookie presence) + page guard + `withAdmin` + `assertAdmin` in every
+  service; `ADMIN_EMAILS` allowlist checked on every request; same-origin check on writes; admin
+  responses are no-store/noindex; `frame-ancestors 'none'` and no-referrer headers on `/admin` and
+  `/api/admin`. A source-tree audit test (`tests/unit/admin-access-audit.test.ts`) fails if a new
+  admin route or page lacks its guard.
+- **Database:** no migrations after `20261118052526_add_admin_auth`. Development uses a Neon **dev
+  branch**; `npm run db:seed-dev` adds fake leads and refuses to run against production.
+- **Not built:** two-factor sign-in (postponed), email change, self-service password reset,
+  per-admin write rate limit, admin Playwright tests. See ADMIN_PANEL.md section 15.
+- **Earlier notes below** (§0 to §0m) describe how each phase was built and may mention things as
+  "uncommitted" that were committed later; Git history and ADMIN_PANEL.md are authoritative.
+
+---
+
 ## 0. Update — Phase 1 landing page (2026-11-17, uncommitted)
 
 This supersedes the design-system notes in §8–§9 where they conflict.

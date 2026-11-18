@@ -97,6 +97,39 @@ export interface DashboardStats {
 export type AdminServiceResult<T> =
   { ok: true; data: T } | { ok: false; reason: "not_configured" | "not_found" | "failed" };
 
+/**
+ * Outcome of an admin service call that changes data. Like `AdminServiceResult`
+ * with one more failure: `conflict`, when the lead was changed by someone else
+ * since the admin loaded it.
+ */
+export type AdminUpdateResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; reason: "not_configured" | "not_found" | "conflict" | "forbidden" | "failed" };
+
+/** What a status update returns: safe fields only. */
+export interface LeadStatusChange {
+  /** False when the lead already had that status (nothing was written or logged). */
+  changed: boolean;
+  lead: {
+    id: string;
+    status: LeadStatus;
+    updatedAt: string;
+    contactedAt: string | null;
+  };
+}
+
+/** What adding or editing a note returns. */
+export interface NoteChange {
+  note: AdminLeadNote;
+  /** False when nothing was written (a repeated submission, or an edit that changed nothing). */
+  changed: boolean;
+}
+
+/** What deleting a note returns. */
+export interface NoteDeletion {
+  noteId: string;
+}
+
 /** Envelope for successful admin API responses. */
 export type AdminApiSuccess<T> = { ok: true } & T;
 

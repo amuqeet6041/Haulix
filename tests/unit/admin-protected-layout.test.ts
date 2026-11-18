@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   requireAdminPage: vi.fn(),
   listLeads: vi.fn(),
   getDashboardStats: vi.fn(),
+  getAccountProfile: vi.fn(),
+  listAccountSessions: vi.fn(),
 }));
 
 vi.mock("@/lib/admin-page", () => ({
@@ -23,6 +25,12 @@ vi.mock("@/services/admin-lead.service", () => ({
   getDashboardStats: mocks.getDashboardStats,
 }));
 
+vi.mock("@/services/admin-account.service", () => ({
+  getAccountProfile: mocks.getAccountProfile,
+  listAccountSessions: mocks.listAccountSessions,
+}));
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+
 const { default: ProtectedAdminLayout } = await import("@/app/admin/(protected)/layout");
 const { default: AdminDashboardPage } = await import("@/app/admin/(protected)/page");
 const { default: AdminLeadsPage } = await import("@/app/admin/(protected)/leads/page");
@@ -33,6 +41,13 @@ const context = {
   sessionId: "session_secret_id",
   email: "admin@haulix.test",
   name: "Admin",
+};
+
+const profile = {
+  name: "Admin",
+  email: "admin@haulix.test",
+  role: "admin",
+  memberSince: "2026-11-01T00:00:00.000Z",
 };
 
 const root = path.resolve(__dirname, "../../src/app/admin");
@@ -47,6 +62,8 @@ afterEach(() => {
   mocks.requireAdminPage.mockReset();
   mocks.listLeads.mockReset();
   mocks.getDashboardStats.mockReset();
+  mocks.getAccountProfile.mockReset();
+  mocks.listAccountSessions.mockReset();
 });
 
 /** Each protected page as a zero-argument call, with the props Next would pass. */
@@ -92,14 +109,33 @@ describe("every protected page still checks access itself", () => {
   it.each(pages)("%s renders for an authorized admin", async (_name, render) => {
     mocks.requireAdminPage.mockResolvedValue(context);
     mocks.listLeads.mockResolvedValue(emptyList);
+    mocks.getAccountProfile.mockResolvedValue({ ok: true, data: profile });
+    mocks.listAccountSessions.mockResolvedValue({ ok: true, data: [] });
     await expect(render()).resolves.toBeTruthy();
   });
 
-  it("the account page shows the name and email but never ids", async () => {
+  it("the account page passes only safe profile and session fields on, never ids or tokens", async () => {
     mocks.requireAdminPage.mockResolvedValue(context);
+    mocks.getAccountProfile.mockResolvedValue({ ok: true, data: profile });
+    mocks.listAccountSessions.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: "sess_opaque",
+          current: true,
+          device: "Chrome on Windows",
+          createdAt: "2026-11-18T10:00:00.000Z",
+          lastActiveAt: "2026-11-18T11:00:00.000Z",
+          expiresAt: "2026-11-19T10:00:00.000Z",
+        },
+      ],
+    });
     const text = JSON.stringify(await AdminAccountPage());
     expect(text).toContain("admin@haulix.test");
-    expect(text).not.toMatch(/user_secret_id|session_secret_id/);
+    expect(text).not.toMatch(/user_secret_id|session_secret_id|"token"|passwordHash/i);
+    // The services are given the verified admin context for the signed-in user.
+    expect(mocks.getAccountProfile).toHaveBeenCalledWith(context);
+    expect(mocks.listAccountSessions.mock.calls[0]![0]).toBe(context);
   });
 });
 

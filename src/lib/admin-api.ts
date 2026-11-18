@@ -53,10 +53,23 @@ export function adminError(
   return withProtectedHeaders(NextResponse.json(body, { status: STATUS_FOR[code] }));
 }
 
-/** Failure half of an `AdminServiceResult` as an HTTP response (503, 404 or 500). */
-export function adminServiceError(reason: "not_configured" | "not_found" | "failed") {
+/**
+ * Failure half of an `AdminServiceResult` or `AdminUpdateResult` as an HTTP
+ * response: 503, 404, 409 or 500. Messages are generic and never carry details.
+ */
+export function adminServiceError(
+  reason: "not_configured" | "not_found" | "conflict" | "forbidden" | "failed",
+) {
   if (reason === "not_configured") return adminError("unavailable");
   if (reason === "not_found") return adminError("not_found");
+  if (reason === "forbidden") {
+    return adminError("forbidden", { message: "You can only change notes that you wrote." });
+  }
+  if (reason === "conflict") {
+    return adminError("conflict", {
+      message: "This lead was updated by someone else. Refresh to see its latest status.",
+    });
+  }
   return adminError("server_error");
 }
 

@@ -3,20 +3,17 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { equipmentLabel } from "@/components/admin/leads-table";
+import { LeadNotesPanel } from "@/components/admin/lead-notes-panel";
+import { LeadStatusControl } from "@/components/admin/lead-status-control";
 import { LocalTime } from "@/components/admin/local-time";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton";
 import { inquiryTypeLabel, type InquiryTypeValue } from "@/content/inquiry-types";
-import {
-  leadStatusMeta,
-  leadStatusLabel,
-  leadStatusTone,
-  leadTypeLabel,
-} from "@/content/lead-status";
+import { leadStatusLabel, leadStatusTone, leadTypeLabel } from "@/content/lead-status";
 import { LEADS_PATH } from "@/lib/admin-lead-url";
-import { buildLeadTimeline, UNKNOWN_ACTOR, type TimelineTone } from "@/lib/lead-timeline";
+import { buildLeadTimeline, type TimelineTone } from "@/lib/lead-timeline";
 import { cn } from "@/lib/utils";
-import type { AdminLeadDetail, AdminLeadNote } from "@/types/admin";
+import type { AdminLeadDetail } from "@/types/admin";
 
 /**
  * Read-only lead detail. Server components that render one already-loaded
@@ -99,30 +96,6 @@ function phoneHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, "")}`;
 }
 
-function NoteItem({ note }: { note: AdminLeadNote }) {
-  const edited = note.updatedAt !== note.createdAt;
-  return (
-    <li className="rounded-xl border border-border bg-ink/40 p-4">
-      <p className="text-sm [overflow-wrap:anywhere] whitespace-pre-wrap text-foreground">
-        {note.body}
-      </p>
-      <p className="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-gray">
-        <span>{note.author?.name.trim() || UNKNOWN_ACTOR}</span>
-        <span aria-hidden="true">&middot;</span>
-        <LocalTime iso={note.createdAt} />
-        {edited ? (
-          <>
-            <span aria-hidden="true">&middot;</span>
-            <span>
-              edited <LocalTime iso={note.updatedAt} />
-            </span>
-          </>
-        ) : null}
-      </p>
-    </li>
-  );
-}
-
 const toneDot: Record<TimelineTone, string> = {
   default: "bg-cream/40",
   positive: "bg-orange",
@@ -156,7 +129,6 @@ function Timeline({ lead }: { lead: AdminLeadDetail }) {
 export function LeadDetailView({ lead }: { lead: AdminLeadDetail }) {
   const isCarrier = lead.type === "CARRIER_INQUIRY";
   const isContact = lead.type === "CONTACT";
-  const status = leadStatusMeta(lead.status);
   const equipment = equipmentLabel(lead.equipment);
   // A contact message may mention equipment or fleet size; show them only when given.
   const showEquipment = isCarrier || Boolean(equipment) || lead.fleetSize !== null;
@@ -254,26 +226,15 @@ export function LeadDetailView({ lead }: { lead: AdminLeadDetail }) {
           </Panel>
 
           <Panel id="notes-heading" title="Notes">
-            {lead.notes.length === 0 ? (
-              <p className="text-sm text-gray">No notes yet.</p>
-            ) : (
-              <ul className="space-y-3">
-                {lead.notes.map((note) => (
-                  <NoteItem key={note.id} note={note} />
-                ))}
-              </ul>
-            )}
+            {/* Internal notes: add, and edit or delete your own. Legacy notes stay read-only. */}
+            <LeadNotesPanel leadId={lead.id} notes={lead.notes} />
           </Panel>
         </div>
 
         <div className="space-y-6">
           <Panel id="status-heading" title="Status">
-            <p className="flex items-center gap-2">
-              <Badge tone={leadStatusTone(lead.status)} dot>
-                {leadStatusLabel(lead.status)}
-              </Badge>
-            </p>
-            {status ? <p className="mt-3 text-sm text-gray">{status.description}</p> : null}
+            {/* The only editable part of this page. Everything else is read-only. */}
+            <LeadStatusControl leadId={lead.id} status={lead.status} />
           </Panel>
 
           <Panel id="dates-heading" title="Details">

@@ -55,20 +55,22 @@ No database connection is required for this step.
 
 ## Commands
 
-| Command                | What it does                                   |
-| ---------------------- | ---------------------------------------------- |
-| `npm run dev`          | Start the dev server                           |
-| `npm run build`        | Production build                               |
-| `npm run start`        | Serve the production build                     |
-| `npm run typecheck`    | TypeScript check (`tsc --noEmit`)              |
-| `npm run lint`         | ESLint                                         |
-| `npm run format`       | Format with Prettier                           |
-| `npm run format:check` | Check formatting                               |
-| `npm run test`         | Unit and component tests (Vitest)              |
-| `npm run test:e2e`     | End-to-end tests (Playwright)                  |
-| `npm run check`        | Typecheck + lint + format check + unit tests   |
-| `npm run db:generate`  | Regenerate the Prisma client                   |
-| `npm run db:migrate`   | Create/apply a database migration (needs a DB) |
+| Command                | What it does                                          |
+| ---------------------- | ----------------------------------------------------- |
+| `npm run dev`          | Start the dev server                                  |
+| `npm run build`        | Production build                                      |
+| `npm run start`        | Serve the production build                            |
+| `npm run typecheck`    | TypeScript check (`tsc --noEmit`)                     |
+| `npm run lint`         | ESLint                                                |
+| `npm run format`       | Format with Prettier                                  |
+| `npm run format:check` | Check formatting                                      |
+| `npm run test`         | Unit and component tests (Vitest)                     |
+| `npm run test:e2e`     | End-to-end tests (Playwright)                         |
+| `npm run check`        | Typecheck + lint + format check + unit tests          |
+| `npm run db:generate`  | Regenerate the Prisma client                          |
+| `npm run db:migrate`   | Create/apply a database migration (needs a DB)        |
+| `npm run admin:create` | Create or reset an admin account (see ADMIN_PANEL.md) |
+| `npm run db:seed-dev`  | Add fake leads to a DEV database (refuses production) |
 
 First-time Playwright setup: `npx playwright install chromium`.
 
@@ -85,6 +87,10 @@ Copy `.env.example` to `.env.local`. Every variable is documented in that file.
 | `CONTACT_EMAIL`                 | No             | HAULIX inbox for notifications; confirmation reply-to |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | No             | Reserved for analytics (not wired up yet)             |
 | `SENTRY_DSN`                    | No             | Reserved for error monitoring (not wired up yet)      |
+
+The admin panel (`/admin`) also needs `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ADMIN_EMAILS` and
+`IP_HASH_SECRET`. See **[ADMIN_PANEL.md](ADMIN_PANEL.md)** for the admin panel's architecture,
+roles, workflows, environment variables, safe development setup and deployment notes.
 
 Only `NEXT_PUBLIC_*` variables reach the browser. Keep secrets out of those.
 

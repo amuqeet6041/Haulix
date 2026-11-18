@@ -11,10 +11,12 @@ import type {
   AdminLeadNote,
   AdminLeadSummary,
   AdminServiceResult,
+  AdminUpdateResult,
   DashboardStats,
+  LeadStatusChange,
   LeadListResult,
 } from "@/types/admin";
-import type { LeadListQuery } from "@/validations/admin-leads";
+import type { LeadListQuery, LeadStatusUpdate } from "@/validations/admin-leads";
 
 /**
  * Read access to leads for the admin panel.
@@ -62,6 +64,33 @@ const summarySelect = {
 
 const authorSelect = { select: { id: true, name: true } } as const;
 
+export const noteSelect = {
+  id: true,
+  body: true,
+  authorId: true,
+  author: authorSelect,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.LeadNoteSelect;
+
+type NoteRow = Prisma.LeadNoteGetPayload<{ select: typeof noteSelect }>;
+
+/**
+ * A note as the admin UI sees it. `canEdit` is true only for the note's own
+ * author (a legacy note with no author is never editable). It only controls
+ * which buttons show: the note service enforces ownership on every write.
+ */
+export function toNote(note: NoteRow, adminUserId: string): AdminLeadNote {
+  return {
+    id: note.id,
+    body: note.body,
+    author: note.author ? { id: note.author.id, name: note.author.name } : null,
+    createdAt: note.createdAt.toISOString(),
+    updatedAt: note.updatedAt.toISOString(),
+    canEdit: note.authorId !== null && note.authorId === adminUserId,
+  };
+}
+
 const detailSelect = {
   ...summarySelect,
   mcNumber: true,
@@ -74,14 +103,7 @@ const detailSelect = {
   confirmationSentAt: true,
   contactedAt: true,
   leadNotes: {
-    select: {
-      id: true,
-      body: true,
-      authorId: true,
-      author: authorSelect,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: noteSelect,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: DETAIL_NOTES_LIMIT,
   },
@@ -128,14 +150,7 @@ const toActor = (user: { id: string; name: string } | null): AdminActor | null =
   user ? { id: user.id, name: user.name } : null;
 
 function toDetail(row: DetailRow, admin: AdminContext): AdminLeadDetail {
-  const notes: AdminLeadNote[] = row.leadNotes.map((note) => ({
-    id: note.id,
-    body: note.body,
-    author: toActor(note.author),
-    createdAt: iso(note.createdAt),
-    updatedAt: iso(note.updatedAt),
-    canEdit: note.authorId !== null && note.authorId === admin.userId,
-  }));
+  const notes: AdminLeadNote[] = row.leadNotes.map((note) => toNote(note, admin.userId));
   const activity: AdminLeadActivity[] = row.activities.map((entry) => ({
     id: entry.id,
     action: entry.action,
@@ -331,6 +346,99 @@ export async function getDashboardStats(
     };
   } catch (error) {
     logServerError("admin-leads", "Failed to load dashboard stats", error);
+    return { ok: false, reason: "failed" };
+  }
+}
+
+const statusChangeSelect = {
+  id: true,
+  status: true,
+  updatedAt: true,
+  contactedAt: true,
+} satisfies Prisma.LeadSelect;
+
+type StatusRow = Prisma.LeadGetPayload<{ select: typeof statusChangeSelect }>;
+
+function toStatusChange(row: StatusRow, changed: boolean): LeadStatusChange {
+  return {
+    changed,
+    lead: {
+      id: row.id,
+      status: row.status,
+      updatedAt: row.updatedAt.toISOString(),
+      contactedAt: row.contactedAt ? row.contactedAt.toISOString() : null,
+    },
+  };
+}
+
+/** Prisma's "record to update not found": the guarded update matched no row. */
+const isNoMatch = (error: unknown) =>
+  typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2025";
+
+/**
+ * Changes a lead's status. Needs the `lead:update-status` permission. Any
+ * status may follow any other.
+ *
+ * One transaction does all of it: read the lead, then update it only if it
+ * still has the status that was read (so two admins cannot silently overwrite
+ * each other) and record the change in LeadActivity with the actor and the
+ * previous and new status. Rules:
+ *   - the same status again changes nothing and logs nothing;
+ *   - `expectedStatus` (what the admin saw) must still match, or it is a conflict;
+ *   - `contactedAt` is set the first time a lead becomes CONTACTED, never reset.
+ */
+export async function updateLeadStatus(
+  admin: unknown,
+  id: string,
+  input: LeadStatusUpdate,
+): Promise<AdminUpdateResult<LeadStatusChange>> {
+  assertAdmin(admin, { lead: ["update-status"] });
+  if (!isDatabaseConfigured()) return { ok: false, reason: "not_configured" };
+
+  try {
+    return await getPrisma().$transaction(
+      async (tx): Promise<AdminUpdateResult<LeadStatusChange>> => {
+        const current = await tx.lead.findUnique({ where: { id }, select: statusChangeSelect });
+        if (!current) return { ok: false, reason: "not_found" };
+        if (input.expectedStatus && input.expectedStatus !== current.status) {
+          return { ok: false, reason: "conflict" };
+        }
+        if (current.status === input.status) {
+          return { ok: true, data: toStatusChange(current, false) };
+        }
+
+        let updated: StatusRow;
+        try {
+          updated = await tx.lead.update({
+            // The status in the filter is the compare-and-set guard.
+            where: { id, status: current.status },
+            data: {
+              status: input.status,
+              ...(input.status === "CONTACTED" && !current.contactedAt
+                ? { contactedAt: new Date() }
+                : {}),
+            },
+            select: statusChangeSelect,
+          });
+        } catch (error) {
+          if (isNoMatch(error)) return { ok: false, reason: "conflict" };
+          throw error;
+        }
+
+        await tx.leadActivity.create({
+          data: {
+            leadId: id,
+            actorId: admin.userId,
+            action: "STATUS_CHANGED",
+            fromStatus: current.status,
+            toStatus: input.status,
+          },
+        });
+        return { ok: true, data: toStatusChange(updated, true) };
+      },
+    );
+  } catch (error) {
+    logServerError("admin-leads", "Failed to update a lead status", error);
     return { ok: false, reason: "failed" };
   }
 }

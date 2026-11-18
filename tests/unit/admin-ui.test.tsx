@@ -306,6 +306,32 @@ describe("ConfirmDialog", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
   });
 
+  it("returns focus to a custom target when one is given", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Open</button>
+          <button>Elsewhere</button>
+          <ConfirmDialog
+            open={open}
+            onOpenChange={setOpen}
+            title="Sure?"
+            description="Really."
+            onConfirm={() => {}}
+            returnFocus={() => screen.getByRole("button", { name: "Elsewhere" })}
+          />
+        </>
+      );
+    }
+    const u = userEvent.setup();
+    render(<Harness />);
+    await u.click(screen.getByRole("button", { name: "Open" }));
+    await u.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Elsewhere" })).toHaveFocus();
+  });
+
   it("does not move focus after a successful confirmation", async () => {
     const u = userEvent.setup();
     render(<DialogHarness onConfirm={vi.fn()} />);

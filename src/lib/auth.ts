@@ -96,6 +96,8 @@ export function createAuth({ database, findUserForSession }: AuthDeps = prismaDe
       max: 60,
       customRules: {
         "/sign-in/email": { window: 15 * 60, max: 5 },
+        // The current password is checked here, so guessing it needs the same brake as sign-in.
+        "/change-password": { window: 15 * 60, max: 5 },
       },
     },
 

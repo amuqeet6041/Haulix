@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render as baseRender, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -6,8 +6,11 @@ import {
   LeadDetailSkeleton,
   LeadDetailView,
 } from "@/components/admin/lead-detail-view";
+import { ToastProvider } from "@/components/ui/toast";
 import { leadStatuses } from "@/content/lead-status";
 import type { AdminLeadDetail } from "@/types/admin";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 vi.mock("next/link", () => ({
   default: ({
@@ -25,6 +28,11 @@ vi.mock("next/link", () => ({
 }));
 
 afterEach(cleanup);
+
+/** The detail page always sits inside the admin shell, which provides toasts. */
+function render(ui: React.ReactElement) {
+  return baseRender(<ToastProvider>{ui}</ToastProvider>);
+}
 
 function carrier(overrides: Partial<AdminLeadDetail> = {}): AdminLeadDetail {
   return {
@@ -264,7 +272,7 @@ describe("LeadDetailView: notes and activity (read-only)", () => {
 
     // A legacy note has no author and is shown, not hidden.
     expect(second).toHaveTextContent("Imported from the old notes field.");
-    expect(second).toHaveTextContent("A former team member");
+    expect(second).toHaveTextContent("Former team member");
     expect(second).not.toHaveTextContent("edited");
   });
 
@@ -312,7 +320,7 @@ describe("LeadDetailView: notes and activity (read-only)", () => {
     ).toBeInTheDocument();
   });
 
-  it("is read-only: no forms, inputs, buttons or editing controls anywhere", () => {
+  it("is read-only except for the status control and the notes: nothing else can be edited", () => {
     const { container } = render(
       <LeadDetailView
         lead={carrier({
@@ -331,15 +339,47 @@ describe("LeadDetailView: notes and activity (read-only)", () => {
         })}
       />,
     );
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
-    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
-    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
-    expect(container.querySelector("form, input, select, textarea, button")).toBeNull();
+    // Controls: the status selector, and the notes panel's own add form.
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
+    expect(screen.getAllByRole("textbox").map((box) => box.getAttribute("id"))).toEqual([
+      "new-note",
+    ]);
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Edit",
+      "Delete",
+      "Add note",
+      "Update status",
+    ]);
+    // Each editing control lives in its own panel and nowhere else.
+    expect(within(panel("Status")).getByRole("combobox")).toBeInTheDocument();
+    expect(within(panel("Notes")).getByRole("textbox")).toBeInTheDocument();
+    for (const name of ["Contact", "Activity", "Details", "Equipment", "Additional message"]) {
+      const region = panel(name);
+      expect(within(region).queryAllByRole("combobox")).toHaveLength(0);
+      expect(within(region).queryAllByRole("button")).toHaveLength(0);
+      expect(within(region).queryAllByRole("textbox")).toHaveLength(0);
+    }
+    // Contact, company, equipment and message fields are plain text, never inputs.
+    expect(container.querySelectorAll("textarea")).toHaveLength(1);
+    expect(container.querySelectorAll("input")).toHaveLength(0);
+    expect(container.querySelectorAll("select")).toHaveLength(1);
+    // Only the notes the server marked as the admin's own have Edit and Delete.
+    const items = within(panel("Notes")).getAllByRole("listitem");
+    expect(within(items[0]!).getAllByRole("button")).toHaveLength(2);
+    expect(within(items[1]!).queryAllByRole("button")).toHaveLength(0);
     // The only links are the back link and the contact links.
     const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
     expect(hrefs.every((href) => href === "/admin/leads" || /^(mailto|tel):/.test(href!))).toBe(
       true,
     );
+  });
+
+  it("offers all six statuses in the status control and no change until used", () => {
+    render(<LeadDetailView lead={carrier({ status: "QUALIFIED" })} />);
+    const control = screen.getByRole("combobox", { name: "Change status" }) as HTMLSelectElement;
+    expect(control.options).toHaveLength(6);
+    expect(control.value).toBe("QUALIFIED");
+    expect(screen.getByRole("button", { name: "Update status" })).toBeDisabled();
   });
 });
 
@@ -417,7 +457,7 @@ describe("BackToLeads and the loading skeleton", () => {
   });
 
   it("announces the skeleton once as loading", () => {
-    render(<LeadDetailSkeleton />);
+    baseRender(<LeadDetailSkeleton />);
     const status = screen.getByRole("status");
     expect(status).toHaveAttribute("aria-busy", "true");
     expect(status).toHaveTextContent("Loading lead");

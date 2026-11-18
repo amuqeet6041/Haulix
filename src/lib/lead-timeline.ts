@@ -25,7 +25,7 @@ export interface TimelineItem {
 }
 
 /** Used when an admin account no longer exists or the note was imported. */
-export const UNKNOWN_ACTOR = "A former team member";
+export const UNKNOWN_ACTOR = "Former team member";
 
 function actorName(actor: { name: string } | null): string {
   return actor?.name.trim() || UNKNOWN_ACTOR;

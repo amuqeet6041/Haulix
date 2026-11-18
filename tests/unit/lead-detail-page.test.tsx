@@ -2,6 +2,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ToastProvider } from "@/components/ui/toast";
 import { AdminAccessError, evaluateAdminSession, type AdminContext } from "@/lib/admin-guard";
 
 /**
@@ -24,7 +25,10 @@ vi.mock("@/lib/prisma", () => ({
   isDatabaseConfigured: () => mocks.configured.value,
   getPrisma: () => ({ lead: { findUnique: mocks.findUnique } }),
 }));
-vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
+vi.mock("next/navigation", () => ({
+  notFound: mocks.notFound,
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: React.ReactNode }) => (
     <a href={href}>{children}</a>
@@ -101,7 +105,9 @@ const row = {
 };
 
 const props = (id: string) => ({ params: Promise.resolve({ id }) });
-const html = async (id = ID) => renderToStaticMarkup(await LeadDetailPage(props(id)));
+// The admin shell provides toasts to every page; the page test supplies them itself.
+const html = async (id = ID) =>
+  renderToStaticMarkup(<ToastProvider>{await LeadDetailPage(props(id))}</ToastProvider>);
 
 beforeEach(() => {
   vi.stubEnv("ADMIN_EMAILS", ADMIN_EMAIL);
